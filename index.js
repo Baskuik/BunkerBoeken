@@ -1,14 +1,21 @@
-const http = require('node:http');
-
-const hostname = '127.0.0.1';
+const express = require('express');
+const path = require('path');
+const app = express();
 const port = 3000;
 
-const server = http.createServer((req, res) => {
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'text/plain');
-  res.end('Hello, World!\n');
+// zeg tegen express dat we statische bestanden (zoals React) gaan serveren
+app.use(express.static(path.join(__dirname, 'client', 'build')));
+
+// API route voorbeeld
+app.get('/api/hello', (req, res) => {
+  res.json({ message: 'Hello from server!' });
 });
 
-server.listen(port, hostname, () => {
-  console.log(`Server running at http://${hostname}:${port}/`);
+// Alle andere routes sturen naar React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
+});
+
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
