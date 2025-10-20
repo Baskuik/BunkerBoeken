@@ -34,6 +34,7 @@ export default function HomePage() {
           <div className="bg-white p-4 rounded-lg shadow-md">
             <div className="w-full h-48 bg-gray-200 mb-4"></div>
             <p className="text-gray-600 mb-4">
+           <img src="placeholder.png" alt="Placeholder" width="300" height="200"></img>
               Beschrijving van de eerste sectie. Korte tekst over wat dit inhoudt.
             </p>
             <button className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
@@ -45,6 +46,7 @@ export default function HomePage() {
           <div className="bg-white p-4 rounded-lg shadow-md">
             <div className="w-full h-48 bg-gray-200 mb-4"></div>
             <p className="text-gray-600 mb-4">
+               <img src="placeholder.png" alt="Placeholder" width="300" height="200"></img>
               Beschrijving van de tweede sectie. Wat meer info of context.
             </p>
             <button className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
