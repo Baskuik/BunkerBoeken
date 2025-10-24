@@ -5,7 +5,9 @@ import { Eye, EyeOff } from "lucide-react";
 function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false); // <-- toegevoegd
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -13,6 +15,13 @@ function AdminLoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    // Validate client-side: wachtwoorden moeten matchen
+    if (password !== passwordConfirm) {
+      setError("Wachtwoorden komen niet overeen.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -72,11 +81,32 @@ function AdminLoginPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-9 text-gray-300 hover:text-white transition"
+              className="absolute right-3 top-8 text-gray-300 hover:text-white transition"
+              aria-label="Toggle wachtwoord zichtbaar"
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
+
+          <div className="relative"> {/* aangepast naar relative zodat knop goed positioneert */}
+            <label className="block mb-1 text-sm font-medium text-gray-200">Bevestig wachtwoord</label>
+            <input
+              type={showPasswordConfirm ? "text" : "password"}
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              required
+              className="w-full p-3 rounded-lg bg-white/20 border border-white/30 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white/30 transition pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+              className="absolute right-3 top-8 text-gray-300 hover:text-white transition"
+              aria-label="Toggle bevestig wachtwoord zichtbaar"
+            >
+              {showPasswordConfirm ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+
 
           <button
             type="submit"
