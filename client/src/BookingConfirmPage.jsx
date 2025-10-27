@@ -1,29 +1,35 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 
 export default function BookingConfirmPage() {
   const { id } = useParams();
-  const [booking, setBooking] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const [booking, setBooking] = useState(location.state && location.state.booking ? location.state.booking : null);
+  const [loading, setLoading] = useState(!booking);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let mounted = true;
     async function fetchBooking() {
+      if (booking) {
+        setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`http://localhost:5000/api/bookings/${id}`);
         if (!res.ok) throw new Error("Niet gevonden");
         const data = await res.json();
         if (mounted) setBooking(data);
       } catch (err) {
-        setError("Kon de boeking niet laden.");
+        if (mounted) setError("Kon de boeking niet laden.");
       } finally {
         if (mounted) setLoading(false);
       }
     }
+    // only fetch if we don't have booking data from navigation state
     fetchBooking();
     return () => (mounted = false);
-  }, [id]);
+  }, [id, booking]);
 
   if (loading) return <div className="p-6">Laden…</div>;
   if (error) return <div className="p-6">Fout: {error}</div>;
@@ -34,13 +40,19 @@ export default function BookingConfirmPage() {
       <h2 className="text-2xl font-bold mb-4">Bevestiging boeking</h2>
 
       <div className="bg-white p-6 rounded shadow space-y-3">
-        <p><strong>Bevestigingsnummer:</strong> {booking.id}</p>
+        <p><strong>Bevestigingsnummer:</strong> {booking.id || "nog niet opgeslagen"}</p>
         <p><strong>Naam:</strong> {booking.name}</p>
         <p><strong>E-mail:</strong> {booking.email}</p>
         <p><strong>Datum:</strong> {booking.date}</p>
         <p><strong>Tijd:</strong> {booking.time}</p>
         <p><strong>Aantal personen:</strong> {booking.people}</p>
         <p><strong>Gemaakt op:</strong> {booking.created_at}</p>
+
+        {booking.serverError && (
+          <div className="mt-3 p-3 bg-yellow-100 border-l-4 border-yellow-400 text-sm">
+            Let op: de boeking kon mogelijk niet naar de server worden opgeslagen: {booking.serverError}
+          </div>
+        )}
 
         <div className="mt-4 p-4 border rounded bg-gray-50">
           <h3 className="font-semibold mb-1">Locatie</h3>

@@ -136,32 +136,21 @@ app.post("/api/logout", (req, res) => {
 
 // POST endpoint to save a booking
 app.post("/api/bookings", (req, res) => {
+  console.log("POST /api/bookings body:", req.body);
   const { name, email, date, time, people } = req.body || {};
-
-  // basic validation
-  if (
-    !name ||
-    !email ||
-    !date ||
-    !time ||
-    !people ||
-    typeof name !== "string" ||
-    typeof email !== "string"
-  ) {
+  if (!name || !email || !date || !time || !people) {
+    console.log("Validation failed:", { name, email, date, time, people });
     return res.status(400).json({ error: "Invalid booking data" });
   }
-
   const insertSql =
     "INSERT INTO bookings (name, email, date, time, people, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
-
   db.query(insertSql, [name.trim(), email.trim(), date, time, Number(people)], (err, result) => {
     if (err) {
-      console.error("Insert booking error:", err);
-      return res.status(500).json({ error: "Failed to save booking" });
+      console.error("DB insert error:", err);
+      return res.status(500).json({ error: "Failed to save booking", details: err.message });
     }
-
-    const bookingId = result.insertId;
-    res.json({ id: bookingId });
+    console.log("Inserted booking id:", result.insertId);
+    res.json({ id: result.insertId });
   });
 });
 

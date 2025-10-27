@@ -45,24 +45,56 @@ export default function BookingPage() {
     }
 
     setSubmitting(true);
+    console.log("Submitting booking:", form);
+
     try {
       const res = await fetch("http://localhost:5000/api/bookings", {
         method: "POST",
+        mode: "cors",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Server error");
+      const text = await res.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { raw: text };
       }
 
-      const data = await res.json();
-      // navigate to confirmation page with id (fetch details there)
-      navigate(`/booking-confirm/${data.id}`);
+      // build booking object to pass to confirmation page
+      const bookingPayload = {
+        id: data && data.id ? data.id : null,
+        name: form.name,
+        email: form.email,
+        date: form.date,
+        time: form.time,
+        people: form.people,
+        // created_at fallback for immediate display; server will have real value
+        created_at: new Date().toISOString(),
+        serverError: !res.ok ? (data.error || data.raw || `status ${res.status}`) : undefined,
+      };
+
+      // always redirect to confirmation page (no alerts)
+      // if server returned an id, include it in the URL; otherwise use 'pending'
+      const idForUrl = bookingPayload.id || "pending";
+      navigate(`/booking-confirm/${idForUrl}`, { state: { booking: bookingPayload } });
+
     } catch (err) {
       console.error("Submit booking error:", err);
-      alert("Kon de boeking niet opslaan. Probeer het later opnieuw.");
+      // on network error redirect to confirm page with error info and form data
+      const bookingPayload = {
+        id: null,
+        name: form.name,
+        email: form.email,
+        date: form.date,
+        time: form.time,
+        people: form.people,
+        created_at: new Date().toISOString(),
+        serverError: err.message || "network error",
+      };
+      navigate(`/booking-confirm/pending`, { state: { booking: bookingPayload } });
     } finally {
       setSubmitting(false);
     }
