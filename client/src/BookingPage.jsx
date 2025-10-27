@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function BookingPage() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", date: "", time: "", people: 1 });
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
 
   useEffect(() => {
     if (form.date) setSelectedDate(form.date);
@@ -23,26 +27,51 @@ export default function BookingPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // safety: re-check validity before submitting
+
     const valid =
       form.name.trim() &&
-      form.email.trim() &&
+      emailValid &&
       form.date &&
       form.time &&
       form.people &&
       Number(form.people) >= 1 &&
       Number(form.people) <= 12;
-    if (!valid) return;
-    console.log("Booking submitted:", form);
-    alert("Boeking verzonden (demo): " + JSON.stringify(form));
+
+    if (!valid) {
+      setEmailTouched(true);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Server error");
+      }
+
+      const data = await res.json();
+      // navigate to confirmation page with id (fetch details there)
+      navigate(`/booking-confirm/${data.id}`);
+    } catch (err) {
+      console.error("Submit booking error:", err);
+      alert("Kon de boeking niet opslaan. Probeer het later opnieuw.");
+    } finally {
+      setSubmitting(false);
+    }
   };
-  
+
   // form validity used for button state
   const isFormValid =
     form.name.trim() &&
-    form.email.trim() &&
+    emailValid &&
     form.date &&
     form.time &&
     form.people &&
@@ -108,10 +137,7 @@ export default function BookingPage() {
         backgroundRepeat: "no-repeat",
       }}
     >
-      {/* semi-transparent overlay so content stays readable */}
-      {/* lower alpha so background image shows through more */}
       <div style={{ minHeight: "100vh", backgroundColor: "rgba(255,255,255,0.55)" }}>
-        {/* Navbar (copied from HomePage) */}
         <nav className="flex justify-between items-center px-8 py-4 bg-gray-500 shadow-sm">
           <div className="text-2xl font-bold text-white">Bunker rondleidingen</div>
           <ul className="flex space-x-6 text-gray-200 font-medium">
@@ -135,11 +161,21 @@ export default function BookingPage() {
 
             <div>
               <label className="block text-sm font-medium mb-1">E-mail</label>
-              <input name="email" value={form.email} onChange={handleChange} type="email" required className="w-full border px-3 py-2 rounded" />
+              <input
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                onBlur={() => setEmailTouched(true)}
+                type="email"
+                required
+                className={`w-full border px-3 py-2 rounded ${emailTouched && !emailValid ? "border-red-500" : ""}`}
+              />
+              {emailTouched && !emailValid && (
+                <p className="text-red-600 text-sm mt-1">Voer een geldig e-mailadres in.</p>
+              )}
             </div>
 
             <div>
-              {/* centered label for chosen date */}
               <label className="block text-sm font-medium mb-1 text-center">Gekozen datum</label>
               <div className="flex items-center justify-center space-x-3">
                 <input
@@ -169,7 +205,6 @@ export default function BookingPage() {
                 </button>
               </div>
 
-              {/* Inline calendar */}
               <div className="mt-4 p-4 border border-gray-100 rounded max-w-sm mx-auto bg-gray-400">
                 <div className="flex justify-between items-center mb-2">
                   <button type="button" onClick={prevMonth} className="px-2 py-1 rounded hover:bg-gray-100">◀</button>
@@ -216,9 +251,7 @@ export default function BookingPage() {
                 </div>
               </div>
 
-              {/* Time selection */}
               <div className="mt-4">
-                {/* centered label for time selection */}
                 <label className="block text-sm font-medium mb-2 text-center">Kies tijd (per uur)</label>
                 <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto">
                   {timeSlots.map((t) => {
@@ -263,15 +296,15 @@ export default function BookingPage() {
               <div className="flex justify-center mt-6">
                 <button
                   type="submit"
-                  disabled={!isFormValid}
+                  disabled={!isFormValid || submitting}
                   className={
                     "px-6 py-3 rounded " +
-                    (isFormValid
+                    (isFormValid && !submitting
                       ? "bg-blue-600 text-white hover:bg-blue-700"
                       : "bg-blue-300 text-white cursor-not-allowed opacity-70")
                   }
                 >
-                  Verstuur boeking
+                  {submitting ? "Versturen..." : "Verstuur boeking"}
                 </button>
               </div>
             </div>

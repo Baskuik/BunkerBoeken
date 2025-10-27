@@ -5,6 +5,7 @@ import AdminLoginPage from "./AdminLoginPage";
 import DashboardPage from "./DashboardPage";
 import PrivateAdminRoute from "./PrivateAdminRoute";
 import BookingPage from "./BookingPage";
+import BookingConfirmPage from "./BookingConfirmPage";
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/boeken" element={<BookingPage />} />
+        <Route path="/booking-confirm/:id" element={<BookingConfirmPage />} />
         <Route path="/adminlogin" element={<AdminLoginPage />} />
         <Route
           path="/dashboard"

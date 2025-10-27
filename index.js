@@ -66,10 +66,27 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
   if (err) {
-    console.error("❌ DB error:", err);
-  } else {
-    console.log("✅ Verbonden met MySQL");
+    console.error("DB connect error:", err);
+    process.exit(1);
   }
+  console.log("Connected to MySQL");
+
+  // ensure bookings table exists
+  const createTableSql = `
+    CREATE TABLE IF NOT EXISTS bookings (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      date DATE NOT NULL,
+      time VARCHAR(10) NOT NULL,
+      people INT NOT NULL,
+      created_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `;
+  db.query(createTableSql, (err) => {
+    if (err) console.error("Create bookings table error:", err);
+    else console.log("Bookings table ready");
+  });
 });
 
 // Login route
@@ -114,6 +131,52 @@ app.post("/api/logout", (req, res) => {
     // clear cookie (naam komt uit session config)
     res.clearCookie("admin_session", { path: "/" });
     return res.json({ message: "Uitgelogd" });
+  });
+});
+
+// POST endpoint to save a booking
+app.post("/api/bookings", (req, res) => {
+  const { name, email, date, time, people } = req.body || {};
+
+  // basic validation
+  if (
+    !name ||
+    !email ||
+    !date ||
+    !time ||
+    !people ||
+    typeof name !== "string" ||
+    typeof email !== "string"
+  ) {
+    return res.status(400).json({ error: "Invalid booking data" });
+  }
+
+  const insertSql =
+    "INSERT INTO bookings (name, email, date, time, people, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
+
+  db.query(insertSql, [name.trim(), email.trim(), date, time, Number(people)], (err, result) => {
+    if (err) {
+      console.error("Insert booking error:", err);
+      return res.status(500).json({ error: "Failed to save booking" });
+    }
+
+    const bookingId = result.insertId;
+    res.json({ id: bookingId });
+  });
+});
+
+// GET endpoint to fetch booking by id
+app.get("/api/bookings/:id", (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Invalid id" });
+
+  db.query("SELECT id, name, email, date, time, people, created_at FROM bookings WHERE id = ?", [id], (err, rows) => {
+    if (err) {
+      console.error("Fetch booking error:", err);
+      return res.status(500).json({ error: "Failed to fetch booking" });
+    }
+    if (!rows.length) return res.status(404).json({ error: "Booking not found" });
+    res.json(rows[0]);
   });
 });
 
