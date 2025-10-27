@@ -1,26 +1,25 @@
-// index.js
 import express from "express";
-import mysql from "mysql2";
-import bcrypt from "bcryptjs";
-import session from "express-session";
 import cors from "cors";
+import mysql from "mysql";
+import session from "express-session";
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
 console.log("Starting server script...");
 
-// global error handlers to surface crashes in terminal
+// basic error handlers
 process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err);
+  console.error("Uncaught exception:", err);
 });
 process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled Rejection:", reason);
+  console.error("Unhandled rejection:", reason);
 });
 
 // Body parser
 app.use(express.json());
 
-// Session setup
+// Session (keep as before if you need it)
 app.use(
   session({
     name: "admin_session",
@@ -36,43 +35,43 @@ app.use(
   })
 );
 
-// CORS setup - whitelist en echo origin (geen wildcard)
+// CORS setup for your React dev server
 const whitelist = ["http://localhost:3000"];
 const corsOptions = {
   origin: (origin, callback) => {
-    console.log("CORS check origin:", origin);
-    if (!origin) return callback(null, true);
-    if (whitelist.includes(origin)) {
-      return callback(null, true);
+    // allow requests with no origin (curl, postman) or from whitelist
+    if (!origin || whitelist.indexOf(origin) !== -1) {
+      callback(null, true);
     } else {
-      console.warn("Blocked CORS origin:", origin);
-      return callback(null, false);
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
 };
-
 app.use(cors(corsOptions));
 
-// Database connectie
-const db = mysql.createConnection({
+// --- MySQL connection and DB/table setup ---
+// connect without a database first so we can create it if missing
+const rootDb = mysql.createConnection({
   host: "localhost",
   user: "root",
   password: "",
-  database: "bunkerboeken",
+  multipleStatements: true,
 });
 
-db.connect((err) => {
+rootDb.connect((err) => {
   if (err) {
-    console.error("DB connect error:", err);
+    console.error("MySQL root connection error:", err);
     process.exit(1);
   }
-  console.log("Connected to MySQL");
+  console.log("Connected to MySQL as root");
 
-  // ensure bookings table exists
-  const createTableSql = `
+  // create database if missing, then ensure table exists
+  const createDbAndTable = `
+    CREATE DATABASE IF NOT EXISTS bunkerboeken CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    USE bunkerboeken;
     CREATE TABLE IF NOT EXISTS bookings (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -80,88 +79,101 @@ db.connect((err) => {
       date DATE NOT NULL,
       time VARCHAR(10) NOT NULL,
       people INT NOT NULL,
-      created_at DATETIME NOT NULL
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `;
-  db.query(createTableSql, (err) => {
-    if (err) console.error("Create bookings table error:", err);
-    else console.log("Bookings table ready");
-  });
-});
-
-// Login route
-app.post("/api/login", (req, res) => {
-  const { email, password } = req.body;
-
-  db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
+  rootDb.query(createDbAndTable, (err) => {
     if (err) {
-      console.error("DB query error:", err);
-      return res.status(500).json({ message: "Serverfout" });
+      console.error("Error creating database/table:", err);
+      process.exit(1);
     }
-    if (results.length === 0) return res.status(401).json({ message: "Ongeldige inloggegevens" });
+    console.log("Database and bookings table ready");
 
-    const user = results[0];
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "Ongeldige inloggegevens" });
-    if (user.role !== "admin") return res.status(403).json({ message: "Geen toegang" });
-
-    req.session.adminId = user.id;
-    req.session.adminEmail = user.email;
-
-    res.json({ message: "Inloggen gelukt!" });
+    // switch to a connection bound to the database for regular queries
+    db = mysql.createConnection({
+      host: "localhost",
+      user: "root",
+      password: "",
+      database: "bunkerboeken",
+    });
+    db.connect((err) => {
+      if (err) {
+        console.error("DB (bunkerboeken) connection error:", err);
+        process.exit(1);
+      }
+      console.log("Connected to bunkerboeken database");
+    });
   });
 });
 
-// Endpoint om te checken of ingelogd
-app.get("/api/me", (req, res) => {
-  if (req.session && req.session.adminId) {
-    res.json({ adminId: req.session.adminId, email: req.session.adminEmail });
-  } else {
-    res.status(401).json({ message: "Niet ingelogd" });
-  }
-});
+// keep db variable for handlers; will be set after DB init
+let db = null;
 
-// Logout route - vernietig sessie en clear cookie
-app.post("/api/logout", (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error("Session destroy error:", err);
-      return res.status(500).json({ message: "Kon niet uitloggen" });
-    }
-    // clear cookie (naam komt uit session config)
-    res.clearCookie("admin_session", { path: "/" });
-    return res.json({ message: "Uitgelogd" });
-  });
-});
+// If rootDb setup finished quickly, db will be assigned in callback above.
+// To be safe, poll until db is set for route handlers (simple guard used below).
 
-// POST endpoint to save a booking
+// POST /api/bookings - insert booking
 app.post("/api/bookings", (req, res) => {
+  // guard if db not ready yet
+  if (!db) {
+    console.warn("DB not ready yet");
+    return res.status(503).json({ error: "Database not ready" });
+  }
+
   console.log("POST /api/bookings body:", req.body);
   const { name, email, date, time, people } = req.body || {};
-  if (!name || !email || !date || !time || !people) {
+
+  // server-side validation
+  if (
+    !name ||
+    !email ||
+    !date ||
+    !time ||
+    people === undefined ||
+    people === null ||
+    typeof name !== "string" ||
+    typeof email !== "string"
+  ) {
     console.log("Validation failed:", { name, email, date, time, people });
     return res.status(400).json({ error: "Invalid booking data" });
   }
+
+  // optional: basic email format check
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRe.test(email)) {
+    return res.status(400).json({ error: "Invalid email" });
+  }
+
+  const peopleNum = Number(people);
+  if (!Number.isInteger(peopleNum) || peopleNum < 1 || peopleNum > 12) {
+    return res.status(400).json({ error: "Invalid people count" });
+  }
+
   const insertSql =
     "INSERT INTO bookings (name, email, date, time, people, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
-  db.query(insertSql, [name.trim(), email.trim(), date, time, Number(people)], (err, result) => {
+  db.query(insertSql, [name.trim(), email.trim(), date, time, peopleNum], (err, result) => {
     if (err) {
       console.error("DB insert error:", err);
       return res.status(500).json({ error: "Failed to save booking", details: err.message });
     }
     console.log("Inserted booking id:", result.insertId);
+    // return the new id
     res.json({ id: result.insertId });
   });
 });
 
-// GET endpoint to fetch booking by id
+// GET booking by id
 app.get("/api/bookings/:id", (req, res) => {
+  if (!db) {
+    return res.status(503).json({ error: "Database not ready" });
+  }
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Invalid id" });
-
-  db.query("SELECT id, name, email, date, time, people, created_at FROM bookings WHERE id = ?", [id], (err, rows) => {
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "Invalid id" });
+  }
+  db.query("SELECT id, name, email, DATE_FORMAT(date, '%Y-%m-%d') AS date, time, people, created_at FROM bookings WHERE id = ?", [id], (err, rows) => {
     if (err) {
-      console.error("Fetch booking error:", err);
+      console.error("DB select error:", err);
       return res.status(500).json({ error: "Failed to fetch booking" });
     }
     if (!rows.length) return res.status(404).json({ error: "Booking not found" });
@@ -169,4 +181,9 @@ app.get("/api/bookings/:id", (req, res) => {
   });
 });
 
-app.listen(5000, () => console.log("🚀 Server gestart op http://localhost:5000"));
+// health check
+app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+app.listen(PORT, () => {
+  console.log(`Server listening on http://localhost:${PORT}`);
+});
