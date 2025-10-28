@@ -184,6 +184,8 @@ app.get("/api/bookings/:id", (req, res) => {
 // health check
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+const server = app.listen(PORT, "0.0.0.0", () => {
+  const addr = server.address();
+  const host = addr.address === "::" || addr.address === "0.0.0.0" ? "127.0.0.1" : addr.address;
+  console.log(`Server listening on http://${host}:${addr.port}`);
 });
