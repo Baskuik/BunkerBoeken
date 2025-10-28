@@ -4,7 +4,6 @@ import HomePage from "./HomePage";
 import AdminLoginPage from "./AdminLoginPage";
 import DashboardPage from "./DashboardPage";
 import PrivateAdminRoute from "./PrivateAdminRoute";
-<<<<<<< HEAD
 import AdminAccountPage from "./AdminAccountPage";
 import StatistiekenPage from "./StatistiekenPage";
 import BevestigingsmailPage from "./BevestigingsmailPage";
@@ -12,10 +11,8 @@ import KostenPage from "./KostenPage";
 import MaxPersoonPage from "./MaxPersoonPage";
 import ReserveringInzienPage from "./ReserveringInzienPage";
 import RondLeidingToevoegenPage from "./RondLeidingToevoegenPage";
-=======
 import BookingPage from "./BookingPage";
 import BookingConfirmPage from "./BookingConfirmPage";
->>>>>>> irfan
 
 function App() {
   return (
