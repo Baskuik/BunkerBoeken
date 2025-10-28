@@ -1,8 +1,13 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import cors from "cors";
 import mysql from "mysql";
 import session from "express-session";
 import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -97,7 +102,6 @@ rootDb.connect((err) => {
     }
     console.log("Database and tables ready");
 
-    // switch to a connection bound to the database for regular queries
     db = mysql.createConnection({
       host: "localhost",
       user: "root",
@@ -110,15 +114,13 @@ rootDb.connect((err) => {
         process.exit(1);
       }
       console.log("Connected to bunkerboeken database");
-
-      // NOTE: default admin creation removed for security.
       console.log("Skipping automatic default admin creation");
     });
   });
 });
 
-// POST /api/bookings - insert booking (guard for db readiness)
-app.post("/api/bookings", (req, res) => {
+// ----------------- ✅ BOOKING + MAIL -----------------
+app.post("/api/bookings", async (req, res) => {
   if (!db) return res.status(503).json({ error: "Database not ready" });
 
   console.log("POST /api/bookings body:", req.body);
@@ -135,14 +137,61 @@ app.post("/api/bookings", (req, res) => {
 
   const insertSql =
     "INSERT INTO bookings (name, email, date, time, people, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
-  db.query(insertSql, [name.trim(), email.trim(), date, time, peopleNum], (err, result) => {
+  db.query(insertSql, [name.trim(), email.trim(), date, time, peopleNum], async (err, result) => {
     if (err) {
       console.error("DB insert error:", err);
       return res.status(500).json({ error: "Failed to save booking", details: err.message });
     }
-    res.json({ id: result.insertId });
+
+    const bookingId = result.insertId;
+    const createdAt = new Date().toISOString();
+
+    // ✉️ E-mail versturen
+    try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASS,
+        },
+      });
+
+      const mailHtml = `
+        <h2>Bevestiging boeking</h2>
+        <p><b>Bevestigingsnummer:</b> ${bookingId}</p>
+        <p><b>Naam:</b> ${name}</p>
+        <p><b>E-mail:</b> ${email}</p>
+        <p><b>Datum:</b> ${date}</p>
+        <p><b>Tijd:</b> ${time}</p>
+        <p><b>Aantal personen:</b> ${peopleNum}</p>
+        <p><b>Gemaakt op:</b> ${createdAt}</p>
+
+        <h3>Locatie</h3>
+        <p>
+          Bunker Museum (voorbeeldadres):<br />
+          Hoofdstraat 1, 1234 AB, Plaatsnaam
+        </p>
+        <p><i>Let op: dit is een tijdelijke placeholder.</i></p>
+      `;
+
+      await transporter.sendMail({
+        from: `"Bunker Museum" <${process.env.MAIL_USER}>`,
+        to: email,
+        subject: `Bevestiging boeking #${bookingId}`,
+        html: mailHtml,
+      });
+
+      console.log(`✅ Bevestigingsmail verzonden naar ${email}`);
+    } catch (mailErr) {
+      console.error("❌ Fout bij verzenden bevestigingsmail:", mailErr);
+    }
+
+    // ✅ Antwoord terug naar frontend
+    res.json({ id: bookingId, created_at: createdAt });
   });
 });
+
+// ----------------------------------------------------
 
 // GET booking by id
 app.get("/api/bookings/:id", (req, res) => {
@@ -164,7 +213,6 @@ app.get("/api/bookings/:id", (req, res) => {
 });
 
 // --- AUTH ENDPOINTS ---
-// POST /api/login
 app.post("/api/login", (req, res) => {
   if (!db) return res.status(503).json({ message: "Database not ready" });
   const { email, password } = req.body || {};
@@ -179,7 +227,6 @@ app.post("/api/login", (req, res) => {
 
     const user = results[0];
     const match = await bcrypt.compare(password, user.password);
-    // Hier aanpassen van "Invalid credentials" naar Nederlandse tekst
     if (!match) return res.status(401).json({ message: "Email of wachtwoord is onjuist" });
     if (user.role !== "admin") return res.status(403).json({ message: "U heeft niet de juiste rechten" });
 
@@ -191,24 +238,23 @@ app.post("/api/login", (req, res) => {
   });
 });
 
-// GET /api/me
 app.get("/api/me", (req, res) => {
-  // Strict session checking
-  if (!req.session ||
+  if (
+    !req.session ||
     !req.session.adminId ||
     !req.session.role ||
-    req.session.role !== 'admin') {
+    req.session.role !== "admin"
+  ) {
     return res.status(401).json({ message: "Not authenticated" });
   }
 
   return res.json({
     adminId: req.session.adminId,
     email: req.session.adminEmail,
-    role: req.session.role
+    role: req.session.role,
   });
 });
 
-// POST /api/logout
 app.post("/api/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) {
