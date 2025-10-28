@@ -168,25 +168,26 @@ app.get("/api/bookings/:id", (req, res) => {
 app.post("/api/login", (req, res) => {
   if (!db) return res.status(503).json({ message: "Database not ready" });
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ message: "Email and password required" });
+  if (!email || !password) return res.status(400).json({ message: "Email of wachtwoord is niet ingevuld" });
 
   db.query("SELECT id, email, password, role FROM users WHERE email = ?", [email], async (err, results) => {
     if (err) {
       console.error("DB query error:", err);
       return res.status(500).json({ message: "Server error" });
     }
-    if (!results.length) return res.status(401).json({ message: "Invalid credentials" });
+    if (!results.length) return res.status(401).json({ message: "Email of wachtwoord is onjuist" });
 
     const user = results[0];
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "Invalid credentials" });
-    if (user.role !== "admin") return res.status(403).json({ message: "No admin access" });
+    // Hier aanpassen van "Invalid credentials" naar Nederlandse tekst
+    if (!match) return res.status(401).json({ message: "Email of wachtwoord is onjuist" });
+    if (user.role !== "admin") return res.status(403).json({ message: "U heeft niet de juiste rechten" });
 
     req.session.adminId = user.id;
     req.session.adminEmail = user.email;
     req.session.role = user.role;
 
-    res.json({ message: "Logged in" });
+    res.json({ message: "Succesvol ingelogd" });
   });
 });
 
@@ -212,10 +213,10 @@ app.post("/api/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       console.error("Session destroy error:", err);
-      return res.status(500).json({ message: "Logout failed" });
+      return res.status(500).json({ message: "Uitloggen failed" });
     }
     res.clearCookie("admin_session", { path: "/" });
-    return res.json({ message: "Logged out" });
+    return res.json({ message: "Succesvol uitgelogd" });
   });
 });
 
