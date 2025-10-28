@@ -46,6 +46,8 @@ export default function BookingConfirmPage() {
         <p><strong>Datum:</strong> {booking.date}</p>
         <p><strong>Tijd:</strong> {booking.time}</p>
         <p><strong>Aantal personen:</strong> {booking.people}</p>
+        <p><strong>Totale prijs:</strong> €{booking.prijs = booking.people * 10}</p>
+
         <p><strong>Gemaakt op:</strong> {booking.created_at}</p>
 
         {booking.serverError && (
