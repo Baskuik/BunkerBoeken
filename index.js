@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import mysql from "mysql";
 import session from "express-session";
+import bcrypt from "bcryptjs";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,7 +20,7 @@ process.on("unhandledRejection", (reason) => {
 // Body parser
 app.use(express.json());
 
-// Session (keep as before if you need it)
+// Session
 app.use(
   session({
     name: "admin_session",
@@ -39,7 +40,6 @@ app.use(
 const whitelist = ["http://localhost:3000"];
 const corsOptions = {
   origin: (origin, callback) => {
-    // allow requests with no origin (curl, postman) or from whitelist
     if (!origin || whitelist.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -52,8 +52,10 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// keep db variable for handlers; will be set after DB init
+let db = null;
+
 // --- MySQL connection and DB/table setup ---
-// connect without a database first so we can create it if missing
 const rootDb = mysql.createConnection({
   host: "localhost",
   user: "root",
@@ -68,8 +70,7 @@ rootDb.connect((err) => {
   }
   console.log("Connected to MySQL as root");
 
-  // create database if missing, then ensure table exists
-  const createDbAndTable = `
+  const createDbAndTables = `
     CREATE DATABASE IF NOT EXISTS bunkerboeken CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     USE bunkerboeken;
     CREATE TABLE IF NOT EXISTS bookings (
@@ -81,13 +82,20 @@ rootDb.connect((err) => {
       people INT NOT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL,
+      role VARCHAR(50) NOT NULL DEFAULT 'user',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `;
-  rootDb.query(createDbAndTable, (err) => {
+  rootDb.query(createDbAndTables, (err) => {
     if (err) {
-      console.error("Error creating database/table:", err);
+      console.error("Error creating database/tables:", err);
       process.exit(1);
     }
-    console.log("Database and bookings table ready");
+    console.log("Database and tables ready");
 
     // switch to a connection bound to the database for regular queries
     db = mysql.createConnection({
@@ -102,46 +110,22 @@ rootDb.connect((err) => {
         process.exit(1);
       }
       console.log("Connected to bunkerboeken database");
+
+      // NOTE: default admin creation removed for security.
+      console.log("Skipping automatic default admin creation");
     });
   });
 });
 
-// keep db variable for handlers; will be set after DB init
-let db = null;
-
-// If rootDb setup finished quickly, db will be assigned in callback above.
-// To be safe, poll until db is set for route handlers (simple guard used below).
-
-// POST /api/bookings - insert booking
+// POST /api/bookings - insert booking (guard for db readiness)
 app.post("/api/bookings", (req, res) => {
-  // guard if db not ready yet
-  if (!db) {
-    console.warn("DB not ready yet");
-    return res.status(503).json({ error: "Database not ready" });
-  }
+  if (!db) return res.status(503).json({ error: "Database not ready" });
 
   console.log("POST /api/bookings body:", req.body);
   const { name, email, date, time, people } = req.body || {};
 
-  // server-side validation
-  if (
-    !name ||
-    !email ||
-    !date ||
-    !time ||
-    people === undefined ||
-    people === null ||
-    typeof name !== "string" ||
-    typeof email !== "string"
-  ) {
-    console.log("Validation failed:", { name, email, date, time, people });
+  if (!name || !email || !date || !time || people === undefined) {
     return res.status(400).json({ error: "Invalid booking data" });
-  }
-
-  // optional: basic email format check
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRe.test(email)) {
-    return res.status(400).json({ error: "Invalid email" });
   }
 
   const peopleNum = Number(people);
@@ -156,28 +140,82 @@ app.post("/api/bookings", (req, res) => {
       console.error("DB insert error:", err);
       return res.status(500).json({ error: "Failed to save booking", details: err.message });
     }
-    console.log("Inserted booking id:", result.insertId);
-    // return the new id
     res.json({ id: result.insertId });
   });
 });
 
 // GET booking by id
 app.get("/api/bookings/:id", (req, res) => {
-  if (!db) {
-    return res.status(503).json({ error: "Database not ready" });
-  }
+  if (!db) return res.status(503).json({ error: "Database not ready" });
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).json({ error: "Invalid id" });
-  }
-  db.query("SELECT id, name, email, DATE_FORMAT(date, '%Y-%m-%d') AS date, time, people, created_at FROM bookings WHERE id = ?", [id], (err, rows) => {
-    if (err) {
-      console.error("DB select error:", err);
-      return res.status(500).json({ error: "Failed to fetch booking" });
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Invalid id" });
+  db.query(
+    "SELECT id, name, email, DATE_FORMAT(date, '%Y-%m-%d') AS date, time, people, created_at FROM bookings WHERE id = ?",
+    [id],
+    (err, rows) => {
+      if (err) {
+        console.error("DB select error:", err);
+        return res.status(500).json({ error: "Failed to fetch booking" });
+      }
+      if (!rows.length) return res.status(404).json({ error: "Booking not found" });
+      res.json(rows[0]);
     }
-    if (!rows.length) return res.status(404).json({ error: "Booking not found" });
-    res.json(rows[0]);
+  );
+});
+
+// --- AUTH ENDPOINTS ---
+// POST /api/login
+app.post("/api/login", (req, res) => {
+  if (!db) return res.status(503).json({ message: "Database not ready" });
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ message: "Email and password required" });
+
+  db.query("SELECT id, email, password, role FROM users WHERE email = ?", [email], async (err, results) => {
+    if (err) {
+      console.error("DB query error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+    if (!results.length) return res.status(401).json({ message: "Invalid credentials" });
+
+    const user = results[0];
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ message: "Invalid credentials" });
+    if (user.role !== "admin") return res.status(403).json({ message: "No admin access" });
+
+    req.session.adminId = user.id;
+    req.session.adminEmail = user.email;
+    req.session.role = user.role;
+
+    res.json({ message: "Logged in" });
+  });
+});
+
+// GET /api/me
+app.get("/api/me", (req, res) => {
+  // Strict session checking
+  if (!req.session ||
+    !req.session.adminId ||
+    !req.session.role ||
+    req.session.role !== 'admin') {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  return res.json({
+    adminId: req.session.adminId,
+    email: req.session.adminEmail,
+    role: req.session.role
+  });
+});
+
+// POST /api/logout
+app.post("/api/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Session destroy error:", err);
+      return res.status(500).json({ message: "Logout failed" });
+    }
+    res.clearCookie("admin_session", { path: "/" });
+    return res.json({ message: "Logged out" });
   });
 });
 
