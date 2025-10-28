@@ -79,8 +79,15 @@ rootDb.connect((err) => {
       date DATE NOT NULL,
       time VARCHAR(10) NOT NULL,
       people INT NOT NULL,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_date_time (date, time)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    
+    -- Ensure unique index exists even if table already created without it
+    SET @ix := (SELECT COUNT(1) FROM information_schema.STATISTICS 
+                WHERE table_schema = 'bunkerboeken' AND table_name = 'bookings' AND index_name = 'uniq_date_time');
+    SET @sql := IF(@ix = 0, 'ALTER TABLE bookings ADD UNIQUE KEY uniq_date_time (date, time)', 'SELECT 1');
+    PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
   `;
   rootDb.query(createDbAndTable, (err) => {
     if (err) {
@@ -149,16 +156,28 @@ app.post("/api/bookings", (req, res) => {
     return res.status(400).json({ error: "Invalid people count" });
   }
 
-  const insertSql =
-    "INSERT INTO bookings (name, email, date, time, people, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
-  db.query(insertSql, [name.trim(), email.trim(), date, time, peopleNum], (err, result) => {
-    if (err) {
-      console.error("DB insert error:", err);
-      return res.status(500).json({ error: "Failed to save booking", details: err.message });
+  // check if the selected date+time is already booked
+  const checkSql = "SELECT id FROM bookings WHERE date = ? AND time = ? LIMIT 1";
+  db.query(checkSql, [date, time], (checkErr, rows) => {
+    if (checkErr) {
+      console.error("DB check error:", checkErr);
+      return res.status(500).json({ error: "Failed to check availability" });
     }
-    console.log("Inserted booking id:", result.insertId);
-    // return the new id
-    res.json({ id: result.insertId });
+    if (rows && rows.length > 0) {
+      return res.status(409).json({ error: "Deze tijd op deze datum is al geboekt" });
+    }
+
+    const insertSql =
+      "INSERT INTO bookings (name, email, date, time, people, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
+    db.query(insertSql, [name.trim(), email.trim(), date, time, peopleNum], (err, result) => {
+      if (err) {
+        console.error("DB insert error:", err);
+        return res.status(500).json({ error: "Failed to save booking", details: err.message });
+      }
+      console.log("Inserted booking id:", result.insertId);
+      // return the new id
+      res.json({ id: result.insertId });
+    });
   });
 });
 
