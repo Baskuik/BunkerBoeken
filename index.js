@@ -152,7 +152,49 @@ app.get("/api/bookings/:id", (req, res) => {
   });
 });
 
-// --- AUTH endpoints blijven hetzelfde --- (login, logout, /me)
+// --- AUTH endpoints ---
+app.post("/api/login", (req, res) => {
+  if (!db) return res.status(503).json({ message: "Database not ready" });
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ message: "Email en wachtwoord zijn verplicht" });
+
+  db.query("SELECT id, email, password, role FROM users WHERE email = ?", [email], async (err, results) => {
+    if (err) {
+      console.error("DB query error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+    if (!results.length) return res.status(401).json({ message: "Email of wachtwoord klopt niet" });
+
+    const user = results[0];
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ message: "Email of wachtwoord klopt niet" });
+    if (user.role !== "admin") return res.status(403).json({ message: "Geen admin toegang" });
+
+    req.session.adminId = user.id;
+    req.session.adminEmail = user.email;
+    req.session.role = user.role;
+
+    return res.json({ message: "Succesvol ingelogd" });
+  });
+});
+
+app.post("/api/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Session destroy error:", err);
+      return res.status(500).json({ message: "Logout failed" });
+    }
+    res.clearCookie("admin_session", { path: "/" });
+    return res.json({ message: "Logged out" });
+  });
+});
+
+app.get("/api/me", (req, res) => {
+  if (!req.session || !req.session.adminId || req.session.role !== "admin") {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  return res.json({ adminId: req.session.adminId, email: req.session.adminEmail, role: req.session.role });
+});
 
 // Health check
 app.get("/api/health", (req, res) => res.json({ ok: true }));

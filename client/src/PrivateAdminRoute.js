@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
 export default function PrivateAdminRoute({ children }) {
-  const [status, setStatus] = useState("loading"); // "loading" | "ok" | "not"
+  const [status, setStatus] = useState("loading"); // loading | ok | not
 
   useEffect(() => {
     let mounted = true;
@@ -13,16 +13,17 @@ export default function PrivateAdminRoute({ children }) {
           credentials: "include",
           headers: { Accept: "application/json" },
         });
-
         if (!mounted) return;
 
-        const data = await res.json();
+        // probeer JSON altijd te lezen (kan nuttige info bevatten)
+        let data = {};
+        try { data = await res.json(); } catch (e) { /* ignore */ }
 
-        // Only allow if status is 200 AND we have valid admin data
-        if (res.status === 200 && data.adminId && data.role === 'admin') {
+        // alleen ok als 200 en role admin aanwezig
+        if (res.status === 200 && data && data.role === "admin" && data.adminId) {
           setStatus("ok");
         } else {
-          console.log("Auth check failed:", { status: res.status, data });
+          console.log("PrivateAdminRoute: auth failed", res.status, data);
           setStatus("not");
         }
       } catch (err) {
@@ -30,21 +31,14 @@ export default function PrivateAdminRoute({ children }) {
         if (mounted) setStatus("not");
       }
     })();
-    return () => {
-      mounted = false;
-    };
+
+    return () => { mounted = false; };
   }, []);
 
   if (status === "loading") return <div>Loading...</div>;
   if (status === "ok") return children;
 
-  // Force cookie cleanup on redirect
-  if (status === "not") {
-    fetch("http://localhost:5000/api/logout", {
-      method: "POST",
-      credentials: "include"
-    }).catch(console.error);
-  }
-
+  // status === "not" -> probeer server logout aan te roepen om cookie te verwijderen (server verwijdert httpOnly cookie)
+  fetch("http://localhost:5000/api/logout", { method: "POST", credentials: "include" }).catch(() => {});
   return <Navigate to="/adminlogin" replace />;
 }
