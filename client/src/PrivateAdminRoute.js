@@ -2,38 +2,49 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
-const PrivateAdminRoute = ({ children }) => {
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+export default function PrivateAdminRoute({ children }) {
+  const [status, setStatus] = useState("loading"); // "loading" | "ok" | "not"
 
   useEffect(() => {
-    const checkAdmin = async () => {
+    let mounted = true;
+    (async () => {
       try {
         const res = await fetch("http://localhost:5000/api/me", {
-          method: "GET",
-          credentials: "include", // belangrijk voor sessies
+          credentials: "include",
+          headers: { Accept: "application/json" },
         });
 
-        // alleen bij 200 toestaan
-        if (res.ok) {
-          setIsAdmin(true);
+        if (!mounted) return;
+
+        const data = await res.json();
+
+        // Only allow if status is 200 AND we have valid admin data
+        if (res.status === 200 && data.adminId && data.role === 'admin') {
+          setStatus("ok");
         } else {
-          setIsAdmin(false);
+          console.log("Auth check failed:", { status: res.status, data });
+          setStatus("not");
         }
       } catch (err) {
-        setIsAdmin(false);
-      } finally {
-        setLoading(false);
+        console.error("PrivateAdminRoute fetch error:", err);
+        if (mounted) setStatus("not");
       }
+    })();
+    return () => {
+      mounted = false;
     };
-
-    checkAdmin();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
-  if (!isAdmin) return <Navigate to="/adminlogin" replace />;
+  if (status === "loading") return <div>Loading...</div>;
+  if (status === "ok") return children;
 
-  return children;
-};
+  // Force cookie cleanup on redirect
+  if (status === "not") {
+    fetch("http://localhost:5000/api/logout", {
+      method: "POST",
+      credentials: "include"
+    }).catch(console.error);
+  }
 
-export default PrivateAdminRoute;
+  return <Navigate to="/adminlogin" replace />;
+}
