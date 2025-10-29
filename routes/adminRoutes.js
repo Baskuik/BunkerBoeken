@@ -4,15 +4,16 @@ import { isAdminLoggedIn } from "../middleware/adminMiddleware.js";
 
 const router = express.Router();
 
-// Dashboard route (alleen toegankelijk voor ingelogde admins)
-router.get("/dashboard", isAdminLoggedIn, (req, res) => {
+// Me route → wordt gebruikt door frontend om te checken of admin ingelogd is
+router.get("/me", isAdminLoggedIn, (req, res) => {
   if (!req.session || !req.session.adminId) {
     return res.status(401).json({ message: "Niet ingelogd als admin" });
   }
 
   res.json({
-    message: `Welkom bij het admin dashboard, ${req.session.adminEmail}`,
     adminId: req.session.adminId,
+    adminEmail: req.session.adminEmail,
+    role: "admin",
   });
 });
 

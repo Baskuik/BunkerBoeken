@@ -7,20 +7,19 @@ export default function PrivateAdminRoute({ children }) {
 
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       try {
         const res = await fetch("http://localhost:5000/api/me", {
           credentials: "include",
           headers: { Accept: "application/json" },
         });
+
         if (!mounted) return;
 
-        // probeer JSON altijd te lezen (kan nuttige info bevatten)
-        let data = {};
-        try { data = await res.json(); } catch (e) { /* ignore */ }
+        const data = await res.json().catch(() => ({}));
 
-        // alleen ok als 200 en role admin aanwezig
-        if (res.status === 200 && data && data.role === "admin" && data.adminId) {
+        if (res.status === 200 && data && data.adminId) {
           setStatus("ok");
         } else {
           console.log("PrivateAdminRoute: auth failed", res.status, data);
@@ -38,7 +37,7 @@ export default function PrivateAdminRoute({ children }) {
   if (status === "loading") return <div>Loading...</div>;
   if (status === "ok") return children;
 
-  // status === "not" -> probeer server logout aan te roepen om cookie te verwijderen (server verwijdert httpOnly cookie)
+  // status === "not" -> probeer server logout aan te roepen
   fetch("http://localhost:5000/api/logout", { method: "POST", credentials: "include" }).catch(() => {});
   return <Navigate to="/adminlogin" replace />;
 }

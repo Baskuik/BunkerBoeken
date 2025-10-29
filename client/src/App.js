@@ -13,6 +13,8 @@ import ReserveringInzienPage from "./ReserveringInzienPage";
 import RondLeidingToevoegenPage from "./RondLeidingToevoegenPage";
 import BookingPage from "./BookingPage";
 import BookingConfirmPage from "./BookingConfirmPage";
+import InzienPage from "./InzienPage";
+import BewerkenPage from "./BewerkenPage";
 
 function App() {
   return (
@@ -27,6 +29,14 @@ function App() {
           element={
             <PrivateAdminRoute>
               <DashboardPage />
+            </PrivateAdminRoute>
+          }
+        />
+        <Route
+          path="/inzien"
+          element={
+            <PrivateAdminRoute>
+              <InzienPage />
             </PrivateAdminRoute>
           }
         />
@@ -83,6 +93,14 @@ function App() {
           element={
             <PrivateAdminRoute>
               <RondLeidingToevoegenPage />
+            </PrivateAdminRoute>
+          }
+        />
+        <Route
+          path="/bewerken"
+          element={
+            <PrivateAdminRoute>
+              <BewerkenPage />
             </PrivateAdminRoute>
           }
         />
