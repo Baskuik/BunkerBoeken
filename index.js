@@ -1,27 +1,41 @@
+// index.js
 import express from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import session from "express-session";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Routers
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 
 dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 5000;
+
+// For __dirname in ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Middleware
 app.use(express.json());
 
-// DATABASE
-const db = await mysql.createConnection({
+// DATABASE CONNECTION
+export const db = await mysql.createConnection({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASS || "",
-  database: process.env.DB_NAME || "rondleidingen",
+  database: process.env.DB_NAME || "bunkerboeken",
 });
 
+console.log("Connected to the database.");
+
 // Nodemailer setup
-const transporter = nodemailer.createTransport({
+export const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: process.env.MAIL_USER,
@@ -29,45 +43,17 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Helper: get / set settings
-async function getSetting(key) {
-  const [rows] = await db.query("SELECT value FROM settings WHERE `key` = ?", [
-    key,
-  ]);
-  if (rows.length === 0) return null;
-  try {
-    return JSON.parse(rows[0].value);
-  } catch {
-    return rows[0].value;
-  }
-}
-
-async function setSetting(key, value) {
-  const val =
-    typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  await db.query(
-    "INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
-    [key, val]
-  );
-}
-
-// CORS and session configuration
+// SESSION CONFIG
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:3000";
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    // allow requests from same-origin tools (no origin) and the client origin
-    if (!origin || origin === CLIENT_ORIGIN) return callback(null, true);
-    return callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
-
-app.use(cors(corsOptions));
-
-
+app.use(
+  cors({
+    origin: CLIENT_ORIGIN,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(
   session({
@@ -84,103 +70,36 @@ app.use(
   })
 );
 
-// ✅ ROUTES koppelen
+// API ROUTES
 app.use("/api", authRoutes);
-app.use("/api/admin", adminRoutes);
+app.use("/api", adminRoutes);
 
-
-// ROUTES
-// Get single setting
-app.get("/api/settings/:key", async (req, res) => {
-  try {
-    const value = await getSetting(req.params.key);
-    res.json({ key: req.params.key, value });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to load setting" });
-  }
-});
-
-// Get all settings
-app.get("/api/settings/all", async (req, res) => {
-  try {
-    const [rows] = await db.query("SELECT `key`, `value` FROM settings");
-    const settings = {};
-    for (const row of rows) {
-      try {
-        settings[row.key] = JSON.parse(row.value);
-      } catch {
-        settings[row.key] = row.value;
-      }
-    }
-    res.json(settings);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch settings" });
-  }
-});
-
-// Update setting
+// SETTINGS ROUTE (voor bewerken page)
 app.put("/api/settings/:key", async (req, res) => {
   try {
-    await setSetting(req.params.key, req.body);
+    const { value } = req.body;
+    if (!req.params.key) return res.status(400).json({ error: "Geen key opgegeven" });
+
+    const valToStore = typeof value === "string" ? value : JSON.stringify(value);
+    await db.query(
+      "INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
+      [req.params.key, valToStore]
+    );
+
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to save setting" });
+    res.status(500).json({ error: "Kon settings niet opslaan" });
   }
 });
 
-// BOOKINGS (simplified)
-app.post("/api/bookings", async (req, res) => {
-  const { name, email, date, time, peopleNum } = req.body;
+// Serve React frontend
+app.use(express.static(path.join(__dirname, "client", "build")));
 
-  try {
-    const prices = (await getSetting("prices")) || [];
-    const basePrice = prices.find(
-      (p) => p.weekday === new Date(date).getDay() || p.weekday === "all"
-    );
-    const pricePerPerson = basePrice?.price || 10;
-    const totalPrice = pricePerPerson * peopleNum;
-
-    // Save booking
-    const [insertResult] = await db.query(
-      "INSERT INTO bookings (name, email, date, time, people, total_price) VALUES (?, ?, ?, ?, ?, ?)",
-      [name, email, date, time, peopleNum, totalPrice]
-    );
-
-    // Send confirmation email
-    try {
-      const emailTemplate = await getSetting("emailTemplate");
-      if (emailTemplate && transporter) {
-        const html = emailTemplate
-          .replace(/\{\{name\}\}/g, name)
-          .replace(/\{\{date\}\}/g, date)
-          .replace(/\{\{time\}\}/g, time)
-          .replace(/\{\{people\}\}/g, peopleNum)
-          .replace(/\{\{price\}\}/g, totalPrice.toFixed(2));
-
-        await transporter.sendMail({
-          from: process.env.MAIL_USER,
-          to: email,
-          subject: "Bevestiging rondleiding",
-          html,
-        });
-      }
-    } catch (mailErr) {
-      console.error("Email send failed:", mailErr);
-    }
-
-    res.status(201).json({
-      success: true,
-      id: insertResult.insertId,
-      totalPrice,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Boeking mislukt" });
-  }
+// Catch-all voor React Router (Express v5 compatibel)
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, "client", "build", "index.html"));
 });
 
-const PORT = process.env.PORT || 5000;
+// START SERVER
 app.listen(PORT, () => console.log(`✅ Server draait op poort ${PORT}`));
