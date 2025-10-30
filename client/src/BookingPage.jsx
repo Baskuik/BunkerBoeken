@@ -12,6 +12,7 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+  const [bookedTimes, setBookedTimes] = useState([]);
 
   useEffect(() => {
     if (form.date) setSelectedDate(form.date);
@@ -215,29 +216,38 @@ export default function BookingPage() {
               </div>
 
               <div className="mt-3 text-xs text-gray-200">
-                Klik een datum om te selecteren. Grijze datums zijn in het verleden.
+                Klik een datum om te selecteren. Grijze datums zijn in het verleden of al geboekt.
               </div>
             </div>
 
             <div className="mt-4">
               <label className="block text-sm font-medium mb-2 text-center">Kies tijd (per uur)</label>
-              <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto">
-                {timeSlots.map(t => {
-                  const isSelected = form.time === t;
-                  const disableTimes = !selectedDate || isSelectedDayPast;
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => !disableTimes && onSelectTime(t)}
-                      disabled={disableTimes}
-                      className={`px-2 py-2 rounded border text-sm ${isSelected ? "bg-blue-600 text-white" : disableTimes ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "hover:bg-blue-50"}`}
-                    >
-                      {t}
-                    </button>
-                  )
-                })}
-              </div>
+         <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto">
+  {timeSlots.map(t => {
+    const isSelected = form.time === t;
+    // disable if no date selected, day is in past, or time is already booked
+    const disableTimes = !selectedDate || isSelectedDayPast || bookedTimes.includes(t);
+
+    return (
+      <button
+        key={t}
+        type="button"
+        onClick={() => !disableTimes && onSelectTime(t)}
+        disabled={disableTimes}
+        className={`px-2 py-2 rounded border text-sm ${
+          isSelected
+            ? "bg-blue-600 text-white"
+            : disableTimes
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "hover:bg-blue-50"
+        }`}
+      >
+        {t}
+      </button>
+    );
+  })}
+</div>
+
               <div className="mt-2 text-xs text-gray-600">
                 Selecteer eerst een datum. Tijden zijn per uur van 10:00 t/m 17:00.
               </div>
