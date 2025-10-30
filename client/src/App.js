@@ -10,37 +10,32 @@ import DashboardPage from "./DashboardPage";
 import PrivateAdminRoute from "./PrivateAdminRoute";
 import AdminAccountPage from "./AdminAccountPage";
 import StatistiekenPage from "./StatistiekenPage";
+import BewerkenPage from "./BewerkenPage";
 import BevestigingsmailPage from "./BevestigingsmailPage";
 import KostenPage from "./KostenPage";
 import MaxPersoonPage from "./MaxPersoonPage";
-import ReserveringInzienPage from "./ReserveringInzienPage";
 import RondLeidingToevoegenPage from "./RondLeidingToevoegenPage";
+import ReserveringInzienPage from "./ReserveringInzienPage";
 import InzienPage from "./InzienPage";
-import BewerkenPage from "./BewerkenPage";
 
 function App() {
   return (
     <Router>
       <Routes>
+        {/* Publieke pagina's */}
         <Route path="/" element={<HomePage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/verhaal" element={<VerhaalPage />} />
         <Route path="/boeken" element={<BookingPage />} />
         <Route path="/booking-confirm/:id" element={<BookingConfirmPage />} />
         <Route path="/adminlogin" element={<AdminLoginPage />} />
+
+        {/* Admin dashboard en routes */}
         <Route
           path="/dashboard"
           element={
             <PrivateAdminRoute>
               <DashboardPage />
-            </PrivateAdminRoute>
-          }
-        />
-        <Route
-          path="/inzien"
-          element={
-            <PrivateAdminRoute>
-              <InzienPage />
             </PrivateAdminRoute>
           }
         />
@@ -61,26 +56,10 @@ function App() {
           }
         />
         <Route
-          path="/bevestigingsmail"
+          path="/inzien"
           element={
             <PrivateAdminRoute>
-              <BevestigingsmailPage />
-            </PrivateAdminRoute>
-          }
-        />
-        <Route
-          path="/kosten"
-          element={
-            <PrivateAdminRoute>
-              <KostenPage />
-            </PrivateAdminRoute>
-          }
-        />
-        <Route
-          path="/maxpersonen"
-          element={
-            <PrivateAdminRoute>
-              <MaxPersoonPage />
+              <InzienPage />
             </PrivateAdminRoute>
           }
         />
@@ -92,14 +71,8 @@ function App() {
             </PrivateAdminRoute>
           }
         />
-        <Route
-          path="/rondleiding-toevoegen"
-          element={
-            <PrivateAdminRoute>
-              <RondLeidingToevoegenPage />
-            </PrivateAdminRoute>
-          }
-        />
+
+        {/* Admin bewerken overzicht */}
         <Route
           path="/bewerken"
           element={
@@ -108,6 +81,43 @@ function App() {
             </PrivateAdminRoute>
           }
         />
+
+        {/* Subpagina's van bewerken */}
+        <Route
+          path="/bewerken/bevestigingsmail"
+          element={
+            <PrivateAdminRoute>
+              <BevestigingsmailPage />
+            </PrivateAdminRoute>
+          }
+        />
+        <Route
+          path="/bewerken/kosten"
+          element={
+            <PrivateAdminRoute>
+              <KostenPage />
+            </PrivateAdminRoute>
+          }
+        />
+        <Route
+          path="/bewerken/maxpersonen"
+          element={
+            <PrivateAdminRoute>
+              <MaxPersoonPage />
+            </PrivateAdminRoute>
+          }
+        />
+        <Route
+          path="/bewerken/rondleidingen"
+          element={
+            <PrivateAdminRoute>
+              <RondLeidingToevoegenPage />
+            </PrivateAdminRoute>
+          }
+        />
+
+        {/* Fallback */}
+        <Route path="*" element={<div className="p-6">Pagina niet gevonden</div>} />
       </Routes>
     </Router>
   );

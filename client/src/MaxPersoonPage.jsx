@@ -1,17 +1,49 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 
-export default function MaxPersoonPage() {
-    const navigate = useNavigate();
-    return (
-        <div className="min-h-screen flex items-start justify-center bg-gray-50 p-6">
-            <div className="w-full max-w-3xl bg-white border border-gray-200 rounded-lg p-6 shadow">
-                <h1 className="text-2xl font-semibold mb-4">Maximaal aantal personen & openingstijden</h1>
-                <p className="text-gray-600 mb-6">Instellingen voor capaciteit en tijden.</p>
-                <button onClick={() => navigate("/dashboard")} className="px-4 py-2 bg-blue-600 text-white rounded border border-black">
-                    Terug naar dashboard
-                </button>
-            </div>
-        </div>
-    );
+export default function MaxpersoonPage() {
+  const [max, setMax] = useState(12);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    async function fetchMax() {
+      const res = await fetch("/api/settings/maxpersonen");
+      const data = await res.json();
+      setMax(Number(data.value) || 12);
+      setLoading(false);
+    }
+    fetchMax();
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    await fetch("/api/settings/maxpersonen", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value: max }),
+    });
+    setSaving(false);
+    alert("Max personen opgeslagen!");
+  }
+
+  if (loading) return <div className="p-6">Laden…</div>;
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-12">
+      <h1 className="text-2xl font-bold mb-6">Max personen per rondleiding</h1>
+      <input
+        type="number"
+        className="w-32 p-2 border rounded"
+        value={max}
+        onChange={(e) => setMax(Number(e.target.value))}
+      />
+      <button
+        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
+        onClick={handleSave}
+        disabled={saving}
+      >
+        {saving ? "Opslaan…" : "Opslaan"}
+      </button>
+    </div>
+  );
 }

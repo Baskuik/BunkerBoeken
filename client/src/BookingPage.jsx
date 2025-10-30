@@ -61,12 +61,14 @@ export default function BookingPage() {
         prijs: totalPrice,
       };
 
-      // Send POST request to backend
-      const res = await fetch("http://127.0.0.1:5000/api/bookings", {
+  const res = await fetch("http://127.0.0.1:5000/api/bookings", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
+  credentials: "include", // <--- voeg dit toe
   body: JSON.stringify(bookingData),
 });
+
+
   
 
       const text = await res.text();

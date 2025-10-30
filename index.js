@@ -10,7 +10,7 @@ import { fileURLToPath } from "url";
 // Routers
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-import bookingRoutes from "./routes/bookings.js"; // <-- toegevoegd
+import bookingRoutes from "./routes/bookings.js";
 
 dotenv.config();
 
@@ -31,7 +31,7 @@ export const db = await mysql.createConnection({
   password: process.env.DB_PASS || "",
   database: process.env.DB_NAME || "bunkerboeken",
 });
-console.log("Connected to database.");
+console.log("✅ Connected to database.");
 
 // Nodemailer
 export const transporter = nodemailer.createTransport({
@@ -44,52 +44,34 @@ export const transporter = nodemailer.createTransport({
 
 // Session & CORS
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+app.use(cors({
+  origin: CLIENT_ORIGIN,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
-app.use(
-  cors({
-    origin: CLIENT_ORIGIN,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+app.use(session({
+  name: process.env.SESSION_NAME || "admin_session",
+  secret: process.env.SESSION_SECRET || "dev_change_this",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+    maxAge: 24 * 60 * 60 * 1000,
+  },
+}));
 
-app.use(
-  session({
-    name: process.env.SESSION_NAME || "admin_session",
-    secret: process.env.SESSION_SECRET || "dev_change_this",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false,
-      maxAge: 24 * 60 * 60 * 1000,
-    },
-  })
-);
+// **Publieke routes eerst**
+app.use("/api/bookings", bookingRoutes);
 
-// API routes
+// Auth routes
 app.use("/api", authRoutes);
-app.use("/api", adminRoutes);
-app.use("/api/bookings", bookingRoutes); // <-- bookings route toegevoegd
 
-// SETTINGS
-app.put("/api/settings/:key", async (req, res) => {
-  try {
-    const { value } = req.body;
-    if (!req.params.key) return res.status(400).json({ error: "Geen key opgegeven" });
-    const valToStore = typeof value === "string" ? value : JSON.stringify(value);
-    await db.query(
-      "INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
-      [req.params.key, valToStore]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Kon settings niet opslaan" });
-  }
-});
+// Admin routes (met admin-check middleware)
+app.use("/api", adminRoutes);
 
 // React frontend
 app.use(express.static(path.join(__dirname, "client", "build")));

@@ -1,9 +1,8 @@
 // middleware/adminMiddleware.js
-export const isAdminLoggedIn = (req, res, next) => {
+export function isAdminLoggedIn(req, res, next) {
   if (req.session && req.session.adminId) {
-    // Admin is ingelogd
-    return next();
+    next();
   } else {
-    return res.status(401).json({ message: "Niet ingelogd als admin" });
+    res.status(401).json({ message: "Niet ingelogd als admin" });
   }
-};
+}

@@ -1,82 +1,49 @@
-// routes/bookingRoutes.js
+// routes/bookings.js
 import express from "express";
-import nodemailer from "nodemailer";
-import { db } from "../index.js"; // database connectie
-
+import { db, transporter } from "../index.js"; 
 const router = express.Router();
 
-// POST /api/bookings
+// POST nieuwe boeking (publiek toegankelijk)
 router.post("/", async (req, res) => {
+  const { name, email, date, time, people, prijs } = req.body;
+
+  if (!name || !email || !date || !time || !people || !prijs) {
+    return res.status(400).json({ error: "Onvolledige gegevens" });
+  }
+
   try {
-    const { name, email, date, time, people } = req.body;
-
-    if (!name || !email || !date || !time || !people) {
-      return res.status(400).json({ error: "Alle velden zijn verplicht" });
-    }
-
-    // Bereken prijs
-    const prijs = Number(people) * 10;
-
-    // Opslaan in database
+    // 1️⃣ Opslaan in DB
     const [result] = await db.execute(
       "INSERT INTO bookings (name, email, date, time, people, prijs) VALUES (?, ?, ?, ?, ?, ?)",
       [name, email, date, time, people, prijs]
     );
 
     const bookingId = result.insertId;
-    const createdAt = new Date().toISOString();
+    let mailError;
 
-    // Mail HTML
-    const mailHtml = `
-      <h2>Bevestiging boeking</h2>
-      <p><b>Bevestigingsnummer:</b> ${bookingId}</p>
-      <p><b>Naam:</b> ${name}</p>
-      <p><b>E-mail:</b> ${email}</p>
-      <p><b>Datum:</b> ${date}</p>
-      <p><b>Tijd:</b> ${time}</p>
-      <p><b>Aantal personen:</b> ${people}</p>
-      <p><b>Prijs:</b> €${prijs}</p>
-      <p><b>Gemaakt op:</b> ${createdAt}</p>
-      <h3>Locatie</h3>
-      <p>
-        Bunker Museum (voorbeeldadres):<br />
-        Hoofdstraat 1, 1234 AB, Plaatsnaam
-      </p>
-      <p><i>Let op: dit is een tijdelijke placeholder.</i></p>
-    `;
+    // 2️⃣ Verstuur bevestigingsmail
+    try {
+      await transporter.sendMail({
+        from: `"Bunker Museum" <${process.env.MAIL_USER}>`,
+        to: email,
+        subject: `Bevestiging boeking #${bookingId}`,
+        text: `Beste ${name},\n\nBedankt voor je reservering op ${date} om ${time}.\nAantal personen: ${people}\nTotaalprijs: €${prijs}\n\nTot ziens bij Bunker Museum!`,
+        html: `<p>Beste ${name},</p>
+               <p>Bedankt voor je reservering op <strong>${date}</strong> om <strong>${time}</strong>.</p>
+               <p>Aantal personen: ${people}<br/>Totaalprijs: €${prijs}</p>
+               <p>Tot ziens bij Bunker Museum!</p>`
+      });
+    } catch (err) {
+      console.error("❌ Fout bij verzenden mail:", err);
+      mailError = err.message;
+    }
 
-    // Mail versturen
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: `"Bunker Museum" <${process.env.MAIL_USER}>`,
-      to: email,
-      subject: `Bevestiging boeking #${bookingId}`,
-      html: mailHtml,
-    });
-
-    // Response naar frontend
-    res.json({
-      id: bookingId,
-      name,
-      email,
-      date,
-      time,
-      people,
-      prijs,
-      created_at: createdAt,
-      message: "Boeking succesvol en e-mail verzonden",
-    });
+    // 3️⃣ Stuur response terug
+    res.json({ id: bookingId, mailError });
 
   } catch (err) {
-    console.error("Fout bij boeking:", err);
-    res.status(500).json({ error: "Fout bij verwerken boeking" });
+    console.error("❌ Fout bij opslaan boeking:", err);
+    res.status(500).json({ error: "Kon de boeking niet opslaan" });
   }
 });
 
