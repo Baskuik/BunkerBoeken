@@ -1,6 +1,8 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import HomePage from "./HomePage";
+import ContactPage from "./ContactPage";
+import VerhaalPage from "./VerhaalPage";
 import AdminLoginPage from "./AdminLoginPage";
 import DashboardPage from "./DashboardPage";
 import PrivateAdminRoute from "./PrivateAdminRoute";
@@ -20,9 +22,9 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/boeken" element={<BookingPage />} />
-        <Route path="/booking-confirm/:id" element={<BookingConfirmPage />} />
+        <Route path="/HomePage" element={<HomePage />} />`
+        <Route path="/ContactPage" element={<ContactPage />} />
+        <Route path="/VerhaalPage" element={<VerhaalPage />} />
         <Route path="/adminlogin" element={<AdminLoginPage />} />
         <Route
           path="/dashboard"
