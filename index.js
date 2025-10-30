@@ -1,4 +1,3 @@
-// index.js
 import express from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
@@ -11,30 +10,30 @@ import { fileURLToPath } from "url";
 // Routers
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import bookingRoutes from "./routes/bookings.js"; // <-- toegevoegd
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// For __dirname in ES module
+// __dirname fix
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(express.json());
 
-// DATABASE CONNECTION
+// Database
 export const db = await mysql.createConnection({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASS || "",
   database: process.env.DB_NAME || "bunkerboeken",
 });
+console.log("Connected to database.");
 
-console.log("Connected to the database.");
-
-// Nodemailer setup
+// Nodemailer
 export const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -43,7 +42,7 @@ export const transporter = nodemailer.createTransport({
   },
 });
 
-// SESSION CONFIG
+// Session & CORS
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:3000";
 
 app.use(
@@ -70,22 +69,21 @@ app.use(
   })
 );
 
-// API ROUTES
+// API routes
 app.use("/api", authRoutes);
 app.use("/api", adminRoutes);
+app.use("/api/bookings", bookingRoutes); // <-- bookings route toegevoegd
 
-// SETTINGS ROUTE (voor bewerken page)
+// SETTINGS
 app.put("/api/settings/:key", async (req, res) => {
   try {
     const { value } = req.body;
     if (!req.params.key) return res.status(400).json({ error: "Geen key opgegeven" });
-
     const valToStore = typeof value === "string" ? value : JSON.stringify(value);
     await db.query(
       "INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
       [req.params.key, valToStore]
     );
-
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -93,13 +91,11 @@ app.put("/api/settings/:key", async (req, res) => {
   }
 });
 
-// Serve React frontend
+// React frontend
 app.use(express.static(path.join(__dirname, "client", "build")));
-
-// Catch-all voor React Router (Express v5 compatibel)
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, "client", "build", "index.html"));
 });
 
-// START SERVER
+// Start server
 app.listen(PORT, () => console.log(`✅ Server draait op poort ${PORT}`));

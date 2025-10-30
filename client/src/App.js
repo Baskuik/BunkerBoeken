@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import HomePage from "./HomePage";
 import ContactPage from "./ContactPage";
 import VerhaalPage from "./VerhaalPage";
+import BookingPage from "./BookingPage";
+import BookingConfirmPage from "./BookingConfirmPage";
 import AdminLoginPage from "./AdminLoginPage";
 import DashboardPage from "./DashboardPage";
 import PrivateAdminRoute from "./PrivateAdminRoute";
@@ -13,8 +15,6 @@ import KostenPage from "./KostenPage";
 import MaxPersoonPage from "./MaxPersoonPage";
 import ReserveringInzienPage from "./ReserveringInzienPage";
 import RondLeidingToevoegenPage from "./RondLeidingToevoegenPage";
-import BookingPage from "./BookingPage";
-import BookingConfirmPage from "./BookingConfirmPage";
 import InzienPage from "./InzienPage";
 import BewerkenPage from "./BewerkenPage";
 
@@ -22,9 +22,9 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/HomePage" element={<HomePage />} />`
-        <Route path="/ContactPage" element={<ContactPage />} />
-        <Route path="/VerhaalPage" element={<VerhaalPage />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/verhaal" element={<VerhaalPage />} />
         <Route path="/boeken" element={<BookingPage />} />
         <Route path="/booking-confirm/:id" element={<BookingConfirmPage />} />
         <Route path="/adminlogin" element={<AdminLoginPage />} />

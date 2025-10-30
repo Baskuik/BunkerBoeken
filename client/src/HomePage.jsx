@@ -8,9 +8,26 @@ export default function HomePage() {
       <nav className="flex justify-between items-center px-10 py-5 bg-white shadow-sm border-b">
         <div className="text-2xl font-bold">name</div>
         <ul className="flex space-x-8 text-gray-700 font-medium">
-          <li><a href="/HomePage" className="hover:text-blue-600">home</a></li>
-          <li><a href="/VerhaalPage" className="hover:text-blue-600">verhaal</a></li>
-          <li><a href="/ContactPage" className="text-blue-600 font-semibold">contact</a></li>
+          <li>
+            <Link to="/" className="hover:text-blue-600">
+              home
+            </Link>
+          </li>
+          <li>
+            <Link to="/verhaal" className="hover:text-blue-600">
+              verhaal
+            </Link>
+          </li>
+          <li>
+            <Link to="/boeken" className="hover:text-blue-600">
+              boeken
+            </Link>
+          </li>
+          <li>
+            <Link to="/contact" className="text-blue-600 font-semibold">
+              contact
+            </Link>
+          </li>
         </ul>
       </nav>
 
@@ -29,20 +46,24 @@ export default function HomePage() {
           <p className="text-lg mb-6 drop-shadow-md">
             Some text describing the site or event.
           </p>
-          <button className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-            Button
-          </button>
+          <Link
+            to="/boeken"
+            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Boek nu
+          </Link>
         </div>
       </section>
 
       {/* Main content */}
       <section className="max-w-6xl mx-auto px-6 py-16 text-center">
         <p className="mb-12 text-gray-700 max-w-3xl mx-auto leading-relaxed">
-          Welkom bij onze bijzondere locatie waar verhalen tot leven komen. 
-          Hier ontdek je de geschiedenis achter de boeken, de mensen die ze schreven 
-          en de wereld waarin ze zijn ontstaan. Tijdens onze rondleidingen nemen we je mee 
-          achter de schermen, delen we unieke anekdotes en laten we je ervaren hoe kunst en 
-          literatuur elkaar versterken. Of je nu een fervent lezer bent of gewoon nieuwsgierig, 
+          Welkom bij onze bijzondere locatie waar verhalen tot leven komen.
+          Hier ontdek je de geschiedenis achter de boeken, de mensen die ze
+          schreven en de wereld waarin ze zijn ontstaan. Tijdens onze
+          rondleidingen nemen we je mee achter de schermen, delen we unieke
+          anekdotes en laten we je ervaren hoe kunst en literatuur elkaar
+          versterken. Of je nu een fervent lezer bent of gewoon nieuwsgierig,
           er is altijd iets nieuws te ontdekken.
         </p>
 
@@ -56,11 +77,15 @@ export default function HomePage() {
               className="w-full h-56 object-cover mb-4 rounded"
             />
             <p className="text-gray-600 mb-6">
-              Beschrijving van de eerste sectie. Korte tekst over wat dit inhoudt.
+              Beschrijving van de eerste sectie. Korte tekst over wat dit
+              inhoudt.
             </p>
-            <a href="/VerhaalPage" className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            <Link
+              to="/verhaal"
+              className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
               Ontdek meer
-            </a>
+            </Link>
           </div>
 
           {/* Box 2 */}
@@ -73,9 +98,12 @@ export default function HomePage() {
             <p className="text-gray-600 mb-6">
               Beschrijving van de tweede sectie. Wat meer info of context.
             </p>
-            <button className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            <Link
+              to="/boeken"
+              className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
               Tickets kopen
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -84,20 +112,20 @@ export default function HomePage() {
           {[
             {
               src: "https://terschelling-cdn.travelbase.nl/image-transforms/hero/2560x1920/3f2624ba9ffc5ebd40c98284e1379e99.webp",
-              caption: "Korte beschrijving 1"
+              caption: "Korte beschrijving 1",
             },
             {
               src: "https://www.bunkermuseumterschelling.nl/wp-content/uploads/2025/05/background.jpg",
-              caption: "Bunkermuseum: buitenkant"
+              caption: "Bunkermuseum: buitenkant",
             },
             {
               src: "https://tse1.mm.bing.net/th/id/OIP.dZTu0UUBa0fGWKPHbwKHqgHaDV?rs=1&pid=ImgDetMain&o=7&rm=3",
-              caption: "Bunkermuseum: interieur expositie"
+              caption: "Bunkermuseum: interieur expositie",
             },
             {
               src: "https://1.bp.blogspot.com/-jwvVxxaMYOY/XwpFCR_xZGI/AAAAAAAABb0/IJvRbGr9b-A2mejqfiAZi4uxudbZpC7rACNcBGAsYHQ/w1200-h630-p-k-no-nu/20180701_140510.jpg",
-              caption: "Bunkermuseum: historische artefacten"
-            }
+              caption: "Bunkermuseum: historische artefacten",
+            },
           ].map((item, i) => (
             <div key={i} className="flex flex-col items-center">
               <img
