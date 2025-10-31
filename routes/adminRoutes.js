@@ -1,3 +1,4 @@
+// routes/adminRoutes.js
 import express from "express";
 import { isAdminLoggedIn } from "../middleware/adminMiddleware.js";
 import { db } from "../index.js";
@@ -16,28 +17,38 @@ router.get("/settings/:key", async (req, res) => {
       "SELECT `value` FROM settings WHERE `key` = ?",
       [key]
     );
-    if (rows.length === 0) return res.json({ key, value: "" });
-    let value = rows[0].value;
-    try { value = JSON.parse(value); } catch {}
-    res.json({ key, value });
+    if (rows.length === 0) {
+      return res.json({ key, value: { subject: "", text: "", html: "" } });
+    }
+
+    const valueRaw = rows[0].value;
+    let valueParsed;
+    try {
+      valueParsed = JSON.parse(valueRaw);
+    } catch {
+      // fallback als JSON corrupt is
+      valueParsed = { subject: "", text: valueRaw || "", html: valueRaw || "" };
+    }
+
+    res.json({ key, value: valueParsed });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Kon setting niet ophalen" });
   }
 });
 
-
 // PUT waarde van een setting
 router.put("/settings/:key", async (req, res) => {
   const { key } = req.params;
   const { value } = req.body;
 
-  if (!key || value === undefined) return res.status(400).json({ error: "Key of value ontbreekt" });
+  if (!key || value === undefined)
+    return res.status(400).json({ error: "Key of value ontbreekt" });
 
   try {
-    const valToStore = typeof value === "string" ? value : JSON.stringify(value);
+    const valToStore = JSON.stringify(value); // JSON.stringify voorkomt control character issues
     await db.execute(
-      "INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
+      "INSERT INTO settings (`key`,`value`) VALUES (?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)",
       [key, valToStore]
     );
     res.json({ success: true, key, value });
@@ -54,8 +65,12 @@ router.get("/me", async (req, res) => {
       return res.status(401).json({ message: "Niet ingelogd als admin" });
     }
 
-    const [rows] = await db.execute("SELECT id, email, role FROM users WHERE id = ?", [req.session.adminId]);
-    if (rows.length === 0) return res.status(404).json({ message: "Admin niet gevonden" });
+    const [rows] = await db.execute(
+      "SELECT id, email, role FROM users WHERE id = ?",
+      [req.session.adminId]
+    );
+    if (rows.length === 0)
+      return res.status(404).json({ message: "Admin niet gevonden" });
 
     res.json({ adminId: rows[0].id, email: rows[0].email, role: rows[0].role });
   } catch (err) {

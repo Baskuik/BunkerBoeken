@@ -11,6 +11,7 @@ import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import bookingRoutes from "./routes/bookings.js";
+import settingsRoutes from "./routes/settings.js";
 
 dotenv.config();
 
@@ -64,13 +65,10 @@ app.use(session({
   },
 }));
 
-// **Publieke routes eerst**
+// Routes
 app.use("/api/bookings", bookingRoutes);
-
-// Auth routes
+app.use("/api/settings", settingsRoutes);
 app.use("/api", authRoutes);
-
-// Admin routes (met admin-check middleware)
 app.use("/api", adminRoutes);
 
 // React frontend
