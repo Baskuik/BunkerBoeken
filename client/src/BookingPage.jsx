@@ -24,10 +24,7 @@ export default function BookingPage() {
   const today = new Date();
   const todayISO = formatISO(today);
 
-  const isDayPast = (date) => {
-    if (!date) return false;
-    return formatISO(date) < todayISO;
-  };
+  const isDayPast = (date) => (date ? formatISO(date) < todayISO : false);
 
   const isTimePast = (dateISO, time) => {
     if (!dateISO || !time) return false;
@@ -174,15 +171,23 @@ export default function BookingPage() {
   const days = buildCalendarGrid(calendarMonth.getFullYear(), calendarMonth.getMonth());
   const monthName = calendarMonth.toLocaleString("default", { month: "long" });
   const yearNum = calendarMonth.getFullYear();
-  const weekdayLabels = ["Su", "Mo", "Tue", "We", "Th", "Fri", "Sat"];
-  const isSelectedDayPast = selectedDate && selectedDate < todayISO;
+  const weekdayLabels = ["Su", "Mo", "Tue", "We", "Th", "Fr", "Sa"];
 
   return (
-    <div className="font-sans min-h-screen bg-fixed" style={{ backgroundImage: "url('/images/BunkerfotoBuiten.jpg')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
+    <div
+      className="font-sans min-h-screen bg-fixed"
+      style={{
+        backgroundImage: "url('/images/BunkerfotoBuiten.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
       <div style={{ minHeight: "100vh", backgroundColor: "rgba(255,255,255,0.55)" }}>
-        <nav className="flex justify-between items-center px-8 py-4 bg-gray-500 shadow-sm">
-          <div className="text-2xl font-bold text-white">Bunker rondleidingen</div>
-          <ul className="flex space-x-6 text-gray-200 font-medium">
+        {/* Navbar */}
+        <nav className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-500 shadow-sm space-y-2 sm:space-y-0">
+          <div className="text-xl sm:text-2xl font-bold text-white">Bunker rondleidingen</div>
+          <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
             <li><Link to="/" className="hover:text-blue-300">home</Link></li>
             <li><a href="#overons" className="hover:text-blue-300">over ons</a></li>
             <li><a href="#verhaal" className="hover:text-blue-300">verhaal</a></li>
@@ -192,10 +197,11 @@ export default function BookingPage() {
           </ul>
         </nav>
 
-        <div className="max-w-3xl mx-auto px-4 py-12">
-          <h2 className="text-2xl font-bold mb-4">Boek uw rondleiding</h2>
+        {/* Booking Form */}
+        <div className="max-w-3xl mx-auto px-4 py-6 sm:py-12">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 text-center sm:text-left">Boek uw rondleiding</h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4 bg-gray-300 rounded shadow p-6">
+          <form onSubmit={handleSubmit} className="space-y-4 bg-gray-300 rounded shadow p-4 sm:p-6">
             {/* Name */}
             <div>
               <label className="block text-sm font-medium mb-1">Naam</label>
@@ -217,18 +223,24 @@ export default function BookingPage() {
               {emailTouched && !emailValid && <p className="text-red-600 text-sm mt-1">Voer een geldig e-mailadres in.</p>}
             </div>
 
-            {/* Date and Time */}
+            {/* Date and Time Display */}
             <div>
               <label className="block text-sm font-medium mb-1 text-center">Gekozen datum</label>
-              <div className="flex items-center justify-center space-x-3">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:space-x-3">
                 <input name="date" value={form.date} readOnly placeholder="Kies een datum" className="w-48 border px-3 py-2 rounded text-center bg-gray-50" />
                 <input name="time" value={form.time} readOnly placeholder="Kies een tijd" className="w-32 border px-3 py-2 rounded text-center bg-gray-50" />
-                <button type="button" onClick={() => { setSelectedDate(""); setForm({ ...form, date: "", time: "" }); }} className="px-3 py-1 border rounded text-sm">Clear</button>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedDate(""); setForm({ ...form, date: "", time: "" }); }}
+                  className="px-3 py-1 border rounded text-sm"
+                >
+                  Clear
+                </button>
               </div>
             </div>
 
             {/* Calendar */}
-            <div className="mt-4 p-4 border border-gray-100 rounded max-w-sm mx-auto bg-gray-400">
+            <div className="mt-4 p-3 sm:p-4 border border-gray-100 rounded w-full max-w-sm mx-auto bg-gray-400">
               <div className="flex justify-between items-center mb-2">
                 <button type="button" onClick={prevMonth} className="px-2 py-1 rounded hover:bg-gray-100">←</button>
                 <div className="text-sm font-medium text-gray-100">{monthName} {yearNum}</div>
@@ -243,7 +255,6 @@ export default function BookingPage() {
                 {days.map((day, idx) => {
                   const isSelected = day && formatISO(day) === selectedDate;
                   const isPast = day && isDayPast(day);
-
                   return (
                     <button
                       key={idx}
@@ -270,7 +281,7 @@ export default function BookingPage() {
             {/* Time Slots */}
             <div className="mt-4">
               <label className="block text-sm font-medium mb-2 text-center">Kies tijd (per uur)</label>
-              <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-sm mx-auto">
                 {timeSlots.map((t) => {
                   const isBooked = bookedTimes.some((bt) => bt.slice(0, 5) === t);
                   const disableTime =
@@ -279,9 +290,7 @@ export default function BookingPage() {
                     bookedTimesError ||
                     isBooked ||
                     isTimePast(selectedDate, t);
-
                   const isSelected = form.time === t;
-
                   return (
                     <button
                       key={t}
@@ -309,12 +318,20 @@ export default function BookingPage() {
             <div>
               <label className="block text-sm font-medium mb-1">Aantal personen (max 12)</label>
               <input name="people" value={form.people} onChange={handleChange} type="number" min="1" max="12" className="w-full border px-3 py-2 rounded" />
-              <div className="mt-2 text-sm font-medium text-gray-700">Totaal prijs: €{form.people ? form.people * 10 : 0}</div>
+              <div className="mt-2 text-sm font-medium text-gray-700 text-center sm:text-left">
+                Totaal prijs: €{form.people ? form.people * 10 : 0}
+              </div>
             </div>
 
             {/* Submit */}
             <div className="flex justify-center mt-6">
-              <button type="submit" disabled={!isFormValid || submitting} className={`px-6 py-3 rounded ${isFormValid && !submitting ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-blue-300 text-white cursor-not-allowed opacity-70"}`}>
+              <button
+                type="submit"
+                disabled={!isFormValid || submitting}
+                className={`px-6 py-3 rounded text-sm sm:text-base ${
+                  isFormValid && !submitting ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-blue-300 text-white cursor-not-allowed opacity-70"
+                }`}
+              >
                 {submitting ? "Versturen..." : "Verstuur boeking"}
               </button>
             </div>
