@@ -3,10 +3,11 @@ import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
 export default function PrivateAdminRoute({ children }) {
-  const [status, setStatus] = useState("loading"); // "loading" | "ok" | "not"
+  const [status, setStatus] = useState("loading"); // loading | ok | not
 
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       try {
         const res = await fetch("http://localhost:5000/api/me", {
@@ -16,13 +17,12 @@ export default function PrivateAdminRoute({ children }) {
 
         if (!mounted) return;
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
-        // Only allow if status is 200 AND we have valid admin data
-        if (res.status === 200 && data.adminId && data.role === 'admin') {
+        if (res.status === 200 && data && data.adminId) {
           setStatus("ok");
         } else {
-          console.log("Auth check failed:", { status: res.status, data });
+          console.log("PrivateAdminRoute: auth failed", res.status, data);
           setStatus("not");
         }
       } catch (err) {
@@ -30,21 +30,14 @@ export default function PrivateAdminRoute({ children }) {
         if (mounted) setStatus("not");
       }
     })();
-    return () => {
-      mounted = false;
-    };
+
+    return () => { mounted = false; };
   }, []);
 
   if (status === "loading") return <div>Loading...</div>;
   if (status === "ok") return children;
 
-  // Force cookie cleanup on redirect
-  if (status === "not") {
-    fetch("http://localhost:5000/api/logout", {
-      method: "POST",
-      credentials: "include"
-    }).catch(console.error);
-  }
-
+  // status === "not" -> probeer server logout aan te roepen
+  fetch("http://localhost:5000/api/logout", { method: "POST", credentials: "include" }).catch(() => {});
   return <Navigate to="/adminlogin" replace />;
 }

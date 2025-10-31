@@ -140,14 +140,28 @@ const AdminDashboard = () => {
             <main className="flex-grow flex flex-col items-center justify-start py-10">
                 <h1 className="text-2xl font-medium mb-8">Wat wilt u vandaag doen?</h1>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl w-full px-6">
-                    {actions.map((item, i) => (
-                        <Card key={i} onClick={() => navigate(item.path)} className="hover:shadow-md hover:bg-gray-50">
-                            <CardContent className="h-32 text-center">
-                                <span className="text-base font-medium">{item.title}</span>
-                            </CardContent>
-                        </Card>
-                    ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-4xl w-full">
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navigate("/inzien")}
+                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate("/inzien")}
+                        className="bg-white rounded-lg border border-black p-6 cursor-pointer hover:shadow-md transition"
+                    >
+                        <h2 className="text-lg font-semibold mb-2">Reserveringen inzien</h2>
+                        <p className="text-sm text-gray-600">Bekijk alle gemaakte reserveringen en details.</p>
+                    </div>
+
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navigate("/bewerken")}
+                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate("/bewerken")}
+                        className="bg-white rounded-lg border border-black p-6 cursor-pointer hover:shadow-md transition"
+                    >
+                        <h2 className="text-lg font-semibold mb-2">Reservering bewerken</h2>
+                        <p className="text-sm text-gray-600">Zoek en pas reserveringen aan of verwijder ze.</p>
+                    </div>
                 </div>
             </main>
         </div>

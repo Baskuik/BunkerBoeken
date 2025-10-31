@@ -23,7 +23,7 @@ export const login = async (req, res) => {
       return res.status(403).json({ message: "Geen toegang" });
     }
 
-    // ✅ Sessie aanmaken in plaats van JWT
+    // Sessie aanmaken
     req.session.adminId = user.id;
     req.session.adminEmail = user.email;
 
@@ -32,4 +32,27 @@ export const login = async (req, res) => {
     console.error(err);
     res.status(500).json({ message: "Serverfout" });
   }
+};
+
+// ✅ Me route
+export const me = (req, res) => {
+  if (!req.session || !req.session.adminId) {
+    return res.status(401).json({ message: "Niet ingelogd" });
+  }
+  res.json({
+    adminId: req.session.adminId,
+    adminEmail: req.session.adminEmail,
+    role: "admin",
+  });
+};
+
+// ✅ Logout route
+export const logout = (req, res) => {
+  if (!req.session) return res.status(400).json({ message: "Geen actieve sessie" });
+
+  req.session.destroy(err => {
+    if (err) return res.status(500).json({ message: "Kon niet uitloggen" });
+    res.clearCookie("admin_session");
+    res.json({ message: "Succesvol uitgelogd" });
+  });
 };
