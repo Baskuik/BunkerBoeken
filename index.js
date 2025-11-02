@@ -1,85 +1,78 @@
+// index.js
 import express from "express";
-import mysql from "mysql2/promise";
-import cors from "cors";
-import nodemailer from "nodemailer";
-import dotenv from "dotenv";
 import session from "express-session";
+import cors from "cors";
+import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-import openingstijdenRoutes from "./routes/openingstijden.js";
 
-// Routers
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-import bookingRoutes from "./routes/bookings.js";
 import settingsRoutes from "./routes/settings.js";
+import { initDB } from "./db.js";
 
 dotenv.config();
-
-const app = express();
-const PORT = process.env.PORT || 5000;
-
-// __dirname fix
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware
-app.use(express.json());
-
-// Database
-export const db = await mysql.createConnection({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASS || "",
-  database: process.env.DB_NAME || "bunkerboeken",
-});
-console.log("✅ Connected to database.");
-
-// Nodemailer
-export const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  },
-});
-
-// Session & CORS
+const app = express();
+const PORT = process.env.PORT || 5000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+
+// ====================
+// 1️⃣ CORS MIDDLEWARE
+// ====================
 app.use(cors({
-  origin: CLIENT_ORIGIN,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  origin: "http://localhost:3000", // frontend URL
+  credentials: true,                // ✅ dit laat cookies toe cross-origin
 }));
 
+// ====================
+// 2️⃣ JSON parser
+// ====================
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ====================
+// 3️⃣ SESSION MIDDLEWARE
+// ====================
 app.use(session({
-  name: process.env.SESSION_NAME || "admin_session",
-  secret: process.env.SESSION_SECRET || "dev_change_this",
+  name: "admin_session",
+  secret: process.env.SESSION_SECRET || "dev_secret",
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    sameSite: "lax",
-    secure: false,
+    secure: false,    // ❌ let op: true = alleen HTTPS, dus false voor localhost
+    sameSite: "none", // ✅ laat cookie cross-origin mee sturen
     maxAge: 24 * 60 * 60 * 1000,
   },
 }));
 
-// Routes
-app.use("/api/bookings", bookingRoutes);
-app.use("/api/settings", settingsRoutes);
-app.use("/api", authRoutes);
-app.use("/api", adminRoutes);
 
-// React frontend
-app.use(express.static(path.join(__dirname, "client", "build")));
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, "client", "build", "index.html"));
+
+// ====================
+// 4️⃣ ROUTES
+// ====================
+app.use("/api", authRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/settings", settingsRoutes);
+
+// ====================
+// 5️⃣ DEBUG ROUTE
+// ====================
+app.get("/debug/session", (req, res) => {
+  res.json({ session: req.session });
 });
 
-// Start server
-app.listen(PORT, () => console.log(`✅ Server draait op poort ${PORT}`));
+// ====================
+// 6️⃣ TEST ENDPOINT
+// ====================
+app.get("/", (req, res) => res.send("Server draait!"));
 
-app.use("/api/openingstijden", openingstijdenRoutes);
-
+// ====================
+// 7️⃣ START SERVER MET DB INIT
+// ====================
+initDB()
+  .then(() => app.listen(PORT, () => console.log(`Server draait op poort ${PORT}`)))
+  .catch(err => console.error("DB connectie fout:", err));

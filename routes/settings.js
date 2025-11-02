@@ -1,5 +1,6 @@
+// routes/settings.js
 import express from "express";
-import { db } from "../index.js";
+import { initDB } from "../db.js";
 
 const router = express.Router();
 
@@ -8,7 +9,9 @@ const router = express.Router();
  * Haalt een setting op uit de database.
  */
 router.get("/:key", async (req, res) => {
+  const db = await initDB(); // ✅ verbinding ophalen
   const { key } = req.params;
+
   try {
     const [rows] = await db.execute(
       "SELECT `value` FROM settings WHERE `key` = ?",
@@ -21,14 +24,14 @@ router.get("/:key", async (req, res) => {
 
     let value = rows[0].value;
 
-    // Automatisch JSON proberen te parsen
+    // Probeer JSON te parsen
     try {
       value = JSON.parse(value);
     } catch {
-      // Laat de value zoals het is
+      // fallback: laat value zoals het is
     }
 
-    res.json({ value });
+    res.json({ key, value });
   } catch (err) {
     console.error("❌ Fout bij ophalen setting:", err);
     res.status(500).json({ error: "Kan niet ophalen" });
@@ -38,26 +41,18 @@ router.get("/:key", async (req, res) => {
 /**
  * PUT /api/settings/:key
  * Maakt of update een setting in de database.
- * 
- * ✅ Werkt voor algemene settings
- * ✅ Herkent speciaal geval 'openingstijden' en valideert dat goed
  */
 router.put("/:key", async (req, res) => {
+  const db = await initDB(); // ✅ verbinding ophalen
   const { key } = req.params;
   const { value } = req.body;
 
-  if (key === "openingstijden") {
-    // Verwacht structuur zoals:
-    // {
-    //   maandag: ["10:00", "11:00", "12:00"],
-    //   dinsdag: ["10:00", "11:00", "12:00"],
-    //   ...
-    // }
-    if (!value || typeof value !== "object") {
-      return res.status(400).json({ error: "Ongeldige value voor openingstijden" });
-    }
+  if (!key || value === undefined) {
+    return res.status(400).json({ error: "Key of value ontbreekt" });
+  }
 
-    // Validatie: controleer dat alle dagen arrays van tijden zijn
+  // Speciale validatie voor openingstijden
+  if (key === "openingstijden") {
     const dagen = [
       "maandag",
       "dinsdag",
@@ -75,11 +70,9 @@ router.put("/:key", async (req, res) => {
           .json({ error: `Ongeldige tijden voor dag '${dag}'` });
       }
     }
-  } else {
-    // Algemeen geval
-    if (!value || typeof value !== "object") {
-      return res.status(400).json({ error: "Ongeldige value (verwacht object)" });
-    }
+  } else if (typeof value !== "object") {
+    // Algemeen geval: verwacht een object
+    return res.status(400).json({ error: "Ongeldige value (verwacht object)" });
   }
 
   try {
@@ -102,7 +95,7 @@ router.put("/:key", async (req, res) => {
       );
     }
 
-    res.json({ success: true, updated: value });
+    res.json({ success: true, key, value });
   } catch (err) {
     console.error("❌ Fout bij opslaan setting:", err);
     res.status(500).json({ error: "Kon niet opslaan" });

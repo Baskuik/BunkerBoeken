@@ -1,7 +1,7 @@
 // routes/adminRoutes.js
 import express from "express";
 import { isAdminLoggedIn } from "../middleware/adminMiddleware.js";
-import { db } from "../index.js";
+import { initDB } from "../db.js";
 
 const router = express.Router();
 
@@ -10,24 +10,24 @@ router.use(isAdminLoggedIn);
 
 // GET waarde van een setting
 router.get("/settings/:key", async (req, res) => {
-  res.setHeader("Cache-Control", "no-store"); // voorkomt caching
+  res.setHeader("Cache-Control", "no-store");
   const { key } = req.params;
   try {
+    const db = await initDB(); // ✅ DB verbinding ophalen
     const [rows] = await db.execute(
       "SELECT `value` FROM settings WHERE `key` = ?",
       [key]
     );
+
     if (rows.length === 0) {
       return res.json({ key, value: { subject: "", text: "", html: "" } });
     }
 
-    const valueRaw = rows[0].value;
     let valueParsed;
     try {
-      valueParsed = JSON.parse(valueRaw);
+      valueParsed = JSON.parse(rows[0].value);
     } catch {
-      // fallback als JSON corrupt is
-      valueParsed = { subject: "", text: valueRaw || "", html: valueRaw || "" };
+      valueParsed = { subject: "", text: rows[0].value || "", html: rows[0].value || "" };
     }
 
     res.json({ key, value: valueParsed });
@@ -46,11 +46,13 @@ router.put("/settings/:key", async (req, res) => {
     return res.status(400).json({ error: "Key of value ontbreekt" });
 
   try {
-    const valToStore = JSON.stringify(value); // JSON.stringify voorkomt control character issues
+    const db = await initDB(); // ✅ DB verbinding ophalen
+    const valToStore = JSON.stringify(value);
     await db.execute(
       "INSERT INTO settings (`key`,`value`) VALUES (?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)",
       [key, valToStore]
     );
+
     res.json({ success: true, key, value });
   } catch (err) {
     console.error(err);
@@ -65,10 +67,12 @@ router.get("/me", async (req, res) => {
       return res.status(401).json({ message: "Niet ingelogd als admin" });
     }
 
+    const db = await initDB(); // ✅ DB verbinding ophalen
     const [rows] = await db.execute(
       "SELECT id, email, role FROM users WHERE id = ?",
       [req.session.adminId]
     );
+
     if (rows.length === 0)
       return res.status(404).json({ message: "Admin niet gevonden" });
 

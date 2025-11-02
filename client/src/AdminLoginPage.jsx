@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
+// Backend URL uit .env
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,20 +16,18 @@ function AdminLoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/login", {
+      const res = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // cookies meesturen
+        credentials: "include", // belangrijk voor session cookie
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
+        const data = await res.json();
         throw new Error(data.message || "Inloggen mislukt");
       }
 
