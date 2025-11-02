@@ -14,10 +14,9 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
-  const [bookedTimes, setBookedTimes] = useState([]);
 
   // Admin state
-  const [isAdmin] = useState(true); // tijdelijk true voor testen
+  const [isAdmin] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
   // Editable texts/images
@@ -26,18 +25,17 @@ export default function BookingPage() {
     timesInfo: "Selecteer eerst een datum. Tijden zijn per uur van 10:00 t/m 17:00."
   });
 
-  // Time slots state
-  const [timeSlots, setTimeSlots] = useState([]);
-  const [openingHours, setOpeningHours] = useState({}); // van backend
+  // Opening hours: extra tijden en verwijderde standaardtijden per datum
+  const [openingHours, setOpeningHours] = useState({});
 
-  // Laad openingstijden bij mount
+  // Standaard uren 10:00 t/m 17:00
+  const standardSlots = Array.from({ length: 8 }, (_, i) => `${String(10 + i).padStart(2, "0")}:00`);
+
   useEffect(() => {
     fetch("http://127.0.0.1:5000/api/settings/openingstijden")
       .then(res => res.json())
       .then(data => {
         setOpeningHours(data.value || {});
-        const slots = Array.from({ length: 8 }, (_, i) => `${String(10 + i).padStart(2, "0")}:00`);
-        setTimeSlots(slots);
       })
       .catch(err => console.error("Kon openingstijden niet laden:", err));
   }, []);
@@ -156,18 +154,19 @@ export default function BookingPage() {
   const todayISO = formatISO(new Date());
   const isSelectedDayPast = selectedDate && selectedDate < todayISO;
 
-  // Admin: voeg nieuwe tijd toe en sla op backend
+  // Voeg nieuwe tijd toe
   const addTimeSlot = async () => {
     if (!selectedDate) return alert("Selecteer eerst een datum");
     const newTime = prompt("Nieuwe tijd invoeren (HH:MM):", "18:00");
     if (!newTime) return;
-    if (!timeSlots.includes(newTime)) {
-      const updatedSlots = [...timeSlots, newTime].sort();
-      setTimeSlots(updatedSlots);
 
-      // update backend voor de geselecteerde dag
-      const dayName = new Date(selectedDate).toLocaleString("nl-NL", { weekday: "long" });
-      const updatedHours = { ...openingHours, [dayName]: updatedSlots };
+    const dateTimes = openingHours[selectedDate]?.extra || [];
+    if (!dateTimes.includes(newTime)) {
+      const updatedSlots = [...dateTimes, newTime].sort();
+      const updatedHours = {
+        ...openingHours,
+        [selectedDate]: { extra: updatedSlots, removed: openingHours[selectedDate]?.removed || [] }
+      };
       setOpeningHours(updatedHours);
 
       try {
@@ -182,9 +181,70 @@ export default function BookingPage() {
         alert("Fout bij opslaan openingstijden");
       }
     } else {
-      alert("Deze tijd bestaat al!");
+      alert("Deze tijd bestaat al voor deze datum!");
     }
   };
+
+  // Verwijder tijd (standaard of extra)
+  const removeTimeSlot = async (time) => {
+    if (!isAdmin || !isEditing || !selectedDate) return;
+    const dateData = openingHours[selectedDate] || { extra: [], removed: [] };
+    let updatedExtra = dateData.extra || [];
+    let updatedRemoved = dateData.removed || [];
+
+    if (standardSlots.includes(time)) {
+      if (!updatedRemoved.includes(time)) updatedRemoved.push(time);
+    } else {
+      updatedExtra = updatedExtra.filter(t => t !== time);
+    }
+
+    const updatedHours = {
+      ...openingHours,
+      [selectedDate]: { extra: updatedExtra, removed: updatedRemoved }
+    };
+    setOpeningHours(updatedHours);
+
+    try {
+      await fetch("http://127.0.0.1:5000/api/settings/openingstijden", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: updatedHours }),
+      });
+      alert(`Tijd ${time} verwijderd!`);
+    } catch (err) {
+      console.error("Kon openingstijden niet opslaan:", err);
+      alert("Fout bij opslaan openingstijden");
+    }
+  };
+
+  // Reset tijden voor geselecteerde datum
+  const resetTimeSlots = async () => {
+    if (!selectedDate) return;
+    const updatedHours = {
+      ...openingHours,
+      [selectedDate]: { extra: [], removed: [] }
+    };
+    setOpeningHours(updatedHours);
+
+    try {
+      await fetch("http://127.0.0.1:5000/api/settings/openingstijden", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: updatedHours }),
+      });
+      alert("Tijden voor deze datum zijn gereset naar standaard!");
+    } catch (err) {
+      console.error("Kon openingstijden niet opslaan:", err);
+      alert("Fout bij opslaan openingstijden");
+    }
+  };
+
+  // Bereken huidige tijdslots voor geselecteerde datum
+  const currentTimeSlots = selectedDate
+    ? standardSlots.filter(t => !(openingHours[selectedDate]?.removed || []).includes(t))
+        .concat(openingHours[selectedDate]?.extra || [])
+        .sort()
+    : [];
 
   return (
     <div className="font-sans min-h-screen bg-fixed" style={{ backgroundImage: "url('/images/BunkerfotoBuiten.jpg')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
@@ -288,31 +348,39 @@ export default function BookingPage() {
               >
                 {editableText.timesInfo}
               </label>
-              <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto">
-                {timeSlots.map((t) => {
-                  const isSelected = form.time === t;
-                  const disableTimes = !selectedDate || isSelectedDayPast || bookedTimes.includes(t);
-                  return (
+              <div className="flex flex-col items-center">
+                <div className="grid grid-cols-4 gap-2 max-w-sm">
+                  {currentTimeSlots.map((t) => (
                     <button
                       key={t}
                       type="button"
-                      onClick={() => !disableTimes && onSelectTime(t)}
-                      disabled={disableTimes}
-                      className={`px-2 py-2 rounded border text-sm ${
-                        isSelected ? "bg-blue-600 text-white" : disableTimes ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "hover:bg-blue-50"
-                      }`}
+                      onClick={() => {
+                        if (isAdmin && isEditing) removeTimeSlot(t);
+                        else onSelectTime(t);
+                      }}
+                      className={`px-2 py-2 rounded border text-sm ${form.time === t ? "bg-blue-600 text-white" : "hover:bg-blue-50"}`}
+                      title={isAdmin && isEditing ? "Klik om te verwijderen" : ""}
                     >
                       {t}
                     </button>
-                  );
-                })}
-                {isAdmin && isEditing && (
+                  ))}
+                  {isAdmin && isEditing && (
+                    <button
+                      type="button"
+                      onClick={addTimeSlot}
+                      className="px-2 py-2 rounded border text-sm bg-green-500 text-white hover:bg-green-600"
+                    >
+                      +
+                    </button>
+                  )}
+                </div>
+                {isAdmin && isEditing && selectedDate && (
                   <button
                     type="button"
-                    onClick={addTimeSlot}
-                    className="px-2 py-2 rounded border text-sm bg-green-500 text-white hover:bg-green-600"
+                    onClick={resetTimeSlots}
+                    className="mt-2 px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 text-sm"
                   >
-                    +
+                    Reset tijden voor deze datum
                   </button>
                 )}
               </div>
