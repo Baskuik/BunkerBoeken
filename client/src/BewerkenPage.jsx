@@ -1,4 +1,4 @@
-// BewerkenPage.jsx
+// src/components/BewerkenPage.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -7,6 +7,11 @@ export default function BewerkenPage() {
 
   const handleNavigate = (path) => {
     navigate(`/bewerken/${path}`);
+  };
+
+  // Tijdelijke knop om website te openen met admin rechten en editMode
+  const handleGoToWebsite = () => {
+    navigate("/boeken", { state: { admin: true, editMode: true } }); 
   };
 
   return (
@@ -54,6 +59,14 @@ export default function BewerkenPage() {
           className="px-4 py-3 bg-red-600 text-white rounded hover:bg-red-700"
         >
           Boekingen
+        </button>
+
+        {/* Tijdelijke knop om website te openen */}
+        <button
+          onClick={handleGoToWebsite}
+          className="px-4 py-3 bg-gray-600 text-white rounded hover:bg-gray-700 col-span-full"
+        >
+          Ga naar website
         </button>
       </div>
     </div>
