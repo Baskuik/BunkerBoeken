@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
-// Backend URL uit .env
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function AdminLoginPage() {
@@ -22,7 +21,7 @@ function AdminLoginPage() {
       const res = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // belangrijk voor session cookie
+        credentials: "include", // 🔑 stuur cookie mee
         body: JSON.stringify({ email, password }),
       });
 
@@ -31,7 +30,6 @@ function AdminLoginPage() {
         throw new Error(data.message || "Inloggen mislukt");
       }
 
-      // Login gelukt → dashboard openen
       navigate("/dashboard");
     } catch (err) {
       setError(err.message);
@@ -41,60 +39,40 @@ function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-700 p-6">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-6">
       <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl p-8 w-full max-w-md text-white">
-        <img
-          src="/placeholder.png"
-          alt="Bunker Logo"
-          className="mx-auto mb-4 w-20 h-20 rounded-full shadow-md"
-        />
-        <h1 className="text-3xl font-bold mb-6 text-center tracking-wide">Admin Login</h1>
-
+        <h1 className="text-3xl font-bold mb-6 text-center">Admin Login</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="block mb-1 text-sm font-medium text-gray-200">E-mailadres</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full p-3 rounded-lg bg-white/20 border border-white/30 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white/30 transition"
-            />
-          </div>
-
+          <input
+            type="email"
+            placeholder="E-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="p-3 rounded-lg bg-white/20 border border-white/30"
+          />
           <div className="relative">
-            <label className="block mb-1 text-sm font-medium text-gray-200">Wachtwoord</label>
             <input
               type={showPassword ? "text" : "password"}
+              placeholder="Wachtwoord"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full p-3 rounded-lg bg-white/20 border border-white/30 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white/30 transition pr-10"
+              className="p-3 rounded-lg bg-white/20 border border-white/30 w-full"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-8 text-gray-300 hover:text-white transition"
-              aria-label="Toggle wachtwoord zichtbaar"
+              className="absolute right-3 top-2 text-gray-300"
             >
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              {showPassword ? <EyeOff /> : <Eye />}
             </button>
           </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`mt-4 ${loading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"} text-white font-semibold py-3 rounded-lg transition-all shadow-md hover:shadow-blue-500/30`}
-          >
+          <button type="submit" disabled={loading} className="bg-blue-600 py-3 rounded-lg">
             {loading ? "Bezig met inloggen..." : "Inloggen"}
           </button>
+          {error && <p className="text-red-400 mt-2">{error}</p>}
         </form>
-
-        {error && (
-          <p className="mt-4 text-red-400 text-center font-medium bg-red-500/10 py-2 rounded-lg border border-red-400/30">
-            {error}
-          </p>
-        )}
       </div>
     </div>
   );

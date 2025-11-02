@@ -1,4 +1,4 @@
-// index.js
+// index.js (achterkant)
 import express from "express";
 import session from "express-session";
 import cors from "cors";
@@ -19,23 +19,17 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:3000";
 
-// ====================
-// 1️⃣ CORS MIDDLEWARE
-// ====================
+// CORS
 app.use(cors({
-  origin: "http://localhost:3000", // frontend URL
-  credentials: true,                // ✅ dit laat cookies toe cross-origin
+  origin: CLIENT_ORIGIN,
+  credentials: true,
 }));
 
-// ====================
-// 2️⃣ JSON parser
-// ====================
+// JSON parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ====================
-// 3️⃣ SESSION MIDDLEWARE
-// ====================
+// SESSION
 app.use(session({
   name: "admin_session",
   secret: process.env.SESSION_SECRET || "dev_secret",
@@ -43,36 +37,32 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false,    // ❌ let op: true = alleen HTTPS, dus false voor localhost
-    sameSite: "none", // ✅ laat cookie cross-origin mee sturen
+    secure: false,
+    sameSite: "lax",
     maxAge: 24 * 60 * 60 * 1000,
   },
 }));
 
-
-
-// ====================
-// 4️⃣ ROUTES
-// ====================
+// ROUTES
 app.use("/api", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/settings", settingsRoutes);
 
-// ====================
-// 5️⃣ DEBUG ROUTE
-// ====================
+// DEBUG ROUTES
 app.get("/debug/session", (req, res) => {
   res.json({ session: req.session });
 });
 
-// ====================
-// 6️⃣ TEST ENDPOINT
-// ====================
+// ✅ Nieuwe debug-route voor sessie check
+app.get("/debug/check-session", (req, res) => {
+  console.log("SESSION OP CHECK-ROUTE:", req.session);
+  res.json({ session: req.session });
+});
+
+// TEST
 app.get("/", (req, res) => res.send("Server draait!"));
 
-// ====================
-// 7️⃣ START SERVER MET DB INIT
-// ====================
+// START SERVER
 initDB()
   .then(() => app.listen(PORT, () => console.log(`Server draait op poort ${PORT}`)))
   .catch(err => console.error("DB connectie fout:", err));

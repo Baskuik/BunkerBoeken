@@ -3,20 +3,15 @@ import { initDB } from "../db.js";
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
-
   if (!email || !password)
     return res.status(400).json({ message: "E-mail en wachtwoord zijn verplicht" });
 
   try {
-    const db = await initDB(); // wacht tot DB klaar is
-
-    // LET OP: kolom is 'role', niet 'roles'
+    const db = await initDB();
     const [rows] = await db.query(
       "SELECT * FROM users WHERE email = ? AND role = 'admin'",
       [email]
     );
-
-    console.log("Gevonden admin:", rows); // debug
 
     if (!rows.length)
       return res.status(401).json({ message: "Ongeldige e-mail of wachtwoord" });
@@ -26,10 +21,12 @@ export const login = async (req, res) => {
     if (!isMatch)
       return res.status(401).json({ message: "Ongeldige e-mail of wachtwoord" });
 
-    // Sla sessie op
+    // ✅ Sla sessie op
     req.session.adminId = admin.id;
     req.session.adminEmail = admin.email;
     req.session.role = "admin";
+
+    console.log("SESSION NA LOGIN:", req.session);
 
     res.status(200).json({
       message: "Succesvol ingelogd",
