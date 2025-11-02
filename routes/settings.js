@@ -21,16 +21,16 @@ router.get("/:key", async (req, res) => {
 
     let value = rows[0].value;
 
-    // Probeer JSON automatisch te parsen, maar val terug op de ruwe string
+    // Automatisch JSON proberen te parsen
     try {
       value = JSON.parse(value);
     } catch {
-      // laat value zoals het is
+      // Laat de value zoals het is
     }
 
     res.json({ value });
   } catch (err) {
-    console.error("❌ Fout bij ophalen template:", err);
+    console.error("❌ Fout bij ophalen setting:", err);
     res.status(500).json({ error: "Kan niet ophalen" });
   }
 });
@@ -38,13 +38,48 @@ router.get("/:key", async (req, res) => {
 /**
  * PUT /api/settings/:key
  * Maakt of update een setting in de database.
+ * 
+ * ✅ Werkt voor algemene settings
+ * ✅ Herkent speciaal geval 'openingstijden' en valideert dat goed
  */
 router.put("/:key", async (req, res) => {
   const { key } = req.params;
   const { value } = req.body;
 
-  if (!value || typeof value !== "object") {
-    return res.status(400).json({ error: "Ongeldige value (verwacht object)" });
+  if (key === "openingstijden") {
+    // Verwacht structuur zoals:
+    // {
+    //   maandag: ["10:00", "11:00", "12:00"],
+    //   dinsdag: ["10:00", "11:00", "12:00"],
+    //   ...
+    // }
+    if (!value || typeof value !== "object") {
+      return res.status(400).json({ error: "Ongeldige value voor openingstijden" });
+    }
+
+    // Validatie: controleer dat alle dagen arrays van tijden zijn
+    const dagen = [
+      "maandag",
+      "dinsdag",
+      "woensdag",
+      "donderdag",
+      "vrijdag",
+      "zaterdag",
+      "zondag",
+    ];
+
+    for (const dag of dagen) {
+      if (!Array.isArray(value[dag])) {
+        return res
+          .status(400)
+          .json({ error: `Ongeldige tijden voor dag '${dag}'` });
+      }
+    }
+  } else {
+    // Algemeen geval
+    if (!value || typeof value !== "object") {
+      return res.status(400).json({ error: "Ongeldige value (verwacht object)" });
+    }
   }
 
   try {
@@ -56,22 +91,20 @@ router.put("/:key", async (req, res) => {
     const stringifiedValue = JSON.stringify(value);
 
     if (!rows.length) {
-      // Nieuwe rij toevoegen
       await db.execute(
         "INSERT INTO settings (`key`, `value`) VALUES (?, ?)",
         [key, stringifiedValue]
       );
     } else {
-      // Bestaande rij updaten
       await db.execute(
         "UPDATE settings SET `value` = ? WHERE `key` = ?",
         [stringifiedValue, key]
       );
     }
 
-    res.json({ success: true });
+    res.json({ success: true, updated: value });
   } catch (err) {
-    console.error("❌ Fout bij opslaan template:", err);
+    console.error("❌ Fout bij opslaan setting:", err);
     res.status(500).json({ error: "Kon niet opslaan" });
   }
 });

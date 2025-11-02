@@ -6,6 +6,8 @@ import dotenv from "dotenv";
 import session from "express-session";
 import path from "path";
 import { fileURLToPath } from "url";
+import timesRoutes from "./routes/openingstijden.js";
+
 
 // Routers
 import authRoutes from "./routes/authRoutes.js";
@@ -79,3 +81,6 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => console.log(`✅ Server draait op poort ${PORT}`));
+
+app.use("/api/openingstijden", openingstijdenRoutes);
+

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function BookingPage() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   // Form state
   const [form, setForm] = useState({ name: "", email: "", date: "", time: "", people: 1 });
@@ -17,14 +16,31 @@ export default function BookingPage() {
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
   const [bookedTimes, setBookedTimes] = useState([]);
 
-  // Admin state via location.state (komt van bewerken pagina)
-  const [isAdmin, setIsAdmin] = useState(location.state?.isAdmin || false);
+  // Admin state
+  const [isAdmin] = useState(true); // tijdelijk true voor testen
   const [isEditing, setIsEditing] = useState(false);
 
+  // Editable texts/images
+  const [editableText, setEditableText] = useState({
+    title: "Boek uw rondleiding",
+    timesInfo: "Selecteer eerst een datum. Tijden zijn per uur van 10:00 t/m 17:00."
+  });
+
   // Time slots state
-  const [timeSlots, setTimeSlots] = useState(
-    Array.from({ length: 8 }, (_, i) => `${String(10 + i).padStart(2, "0")}:00`)
-  );
+  const [timeSlots, setTimeSlots] = useState([]);
+  const [openingHours, setOpeningHours] = useState({}); // van backend
+
+  // Laad openingstijden bij mount
+  useEffect(() => {
+    fetch("http://127.0.0.1:5000/api/settings/openingstijden")
+      .then(res => res.json())
+      .then(data => {
+        setOpeningHours(data.value || {});
+        const slots = Array.from({ length: 8 }, (_, i) => `${String(10 + i).padStart(2, "0")}:00`);
+        setTimeSlots(slots);
+      })
+      .catch(err => console.error("Kon openingstijden niet laden:", err));
+  }, []);
 
   useEffect(() => {
     if (form.date) setSelectedDate(form.date);
@@ -42,7 +58,6 @@ export default function BookingPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const valid =
       form.name.trim() &&
       emailValid &&
@@ -141,62 +156,49 @@ export default function BookingPage() {
   const todayISO = formatISO(new Date());
   const isSelectedDayPast = selectedDate && selectedDate < todayISO;
 
-  // Admin: voeg nieuwe tijd toe
-  const addTimeSlot = () => {
+  // Admin: voeg nieuwe tijd toe en sla op backend
+  const addTimeSlot = async () => {
     if (!selectedDate) return alert("Selecteer eerst een datum");
     const newTime = prompt("Nieuwe tijd invoeren (HH:MM):", "18:00");
     if (!newTime) return;
     if (!timeSlots.includes(newTime)) {
-      const updated = [...timeSlots, newTime].sort();
-      setTimeSlots(updated);
+      const updatedSlots = [...timeSlots, newTime].sort();
+      setTimeSlots(updatedSlots);
+
+      // update backend voor de geselecteerde dag
+      const dayName = new Date(selectedDate).toLocaleString("nl-NL", { weekday: "long" });
+      const updatedHours = { ...openingHours, [dayName]: updatedSlots };
+      setOpeningHours(updatedHours);
+
+      try {
+        await fetch("http://127.0.0.1:5000/api/settings/openingstijden", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value: updatedHours }),
+        });
+        alert("Nieuwe tijd toegevoegd!");
+      } catch (err) {
+        console.error("Kon openingstijden niet opslaan:", err);
+        alert("Fout bij opslaan openingstijden");
+      }
+    } else {
+      alert("Deze tijd bestaat al!");
     }
   };
 
   return (
-    <div
-      className="font-sans min-h-screen bg-fixed"
-      style={{
-        backgroundImage: "url('/images/BunkerfotoBuiten.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
+    <div className="font-sans min-h-screen bg-fixed" style={{ backgroundImage: "url('/images/BunkerfotoBuiten.jpg')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
       <div style={{ minHeight: "100vh", backgroundColor: "rgba(255,255,255,0.55)" }}>
         {/* Navbar */}
         <nav className="flex justify-between items-center px-8 py-4 bg-gray-500 shadow-sm">
           <div className="text-2xl font-bold text-white">Bunker rondleidingen</div>
           <ul className="flex space-x-6 text-gray-200 font-medium">
-            <li>
-              <Link to="/" className="text-gray-200 hover:text-blue-300">
-                home
-              </Link>
-            </li>
-            <li>
-              <a href="#overons" className="text-gray-200 hover:text-blue-300">
-                over ons
-              </a>
-            </li>
-            <li>
-              <a href="#verhaal" className="text-gray-200 hover:text-blue-300">
-                verhaal
-              </a>
-            </li>
-            <li>
-              <a href="#rondleiding" className="text-gray-200 hover:text-blue-300">
-                rondleiding
-              </a>
-            </li>
-            <li>
-              <Link to="/boeken" className="text-gray-200 hover:text-blue-300">
-                boeken
-              </Link>
-            </li>
-            <li>
-              <a href="#contact" className="text-gray-200 hover:text-blue-300">
-                contact
-              </a>
-            </li>
+            <li><Link to="/" className="text-gray-200 hover:text-blue-300">home</Link></li>
+            <li><a href="#overons" className="text-gray-200 hover:text-blue-300">over ons</a></li>
+            <li><a href="#verhaal" className="text-gray-200 hover:text-blue-300">verhaal</a></li>
+            <li><a href="#rondleiding" className="text-gray-200 hover:text-blue-300">rondleiding</a></li>
+            <li><Link to="/boeken" className="text-gray-200 hover:text-blue-300">boeken</Link></li>
+            <li><a href="#contact" className="text-gray-200 hover:text-blue-300">contact</a></li>
           </ul>
         </nav>
 
@@ -204,37 +206,29 @@ export default function BookingPage() {
         {isAdmin && (
           <div className="flex justify-end max-w-3xl mx-auto px-4 py-2">
             {!isEditing ? (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-              >
-                Pagina bewerken
-              </button>
+              <button onClick={() => setIsEditing(true)} className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Pagina bewerken</button>
             ) : (
-              <button
-                onClick={() => setIsEditing(false)}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-              >
-                Done
-              </button>
+              <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Done</button>
             )}
           </div>
         )}
 
         {/* Form en kalender */}
         <div className="max-w-3xl mx-auto px-4 py-12">
-          <h2 className="text-2xl font-bold mb-4">Boek uw rondleiding</h2>
+          <h2
+            className="text-2xl font-bold mb-4"
+            contentEditable={isEditing}
+            suppressContentEditableWarning={true}
+            onInput={(e) => setEditableText({ ...editableText, title: e.currentTarget.textContent })}
+          >
+            {editableText.title}
+          </h2>
+
           <form onSubmit={handleSubmit} className="space-y-4 bg-gray-300 rounded shadow p-6">
             {/* Naam, email */}
             <div>
               <label className="block text-sm font-medium mb-1">Naam</label>
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                required
-                className="w-full border px-3 py-2 rounded"
-              />
+              <input name="name" value={form.name} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">E-mail</label>
@@ -253,22 +247,12 @@ export default function BookingPage() {
             {/* Kalender */}
             <div className="mt-4 p-4 border border-gray-100 rounded max-w-sm mx-auto bg-gray-400">
               <div className="flex justify-between items-center mb-2">
-                <button type="button" onClick={prevMonth} className="px-2 py-1 rounded hover:bg-gray-100">
-                  ◀
-                </button>
-                <div className="text-sm font-medium text-gray-100">
-                  {monthName} {yearNum}
-                </div>
-                <button type="button" onClick={nextMonth} className="px-2 py-1 rounded hover:bg-gray-100">
-                  ▶
-                </button>
+                <button type="button" onClick={prevMonth} className="px-2 py-1 rounded hover:bg-gray-100">◀</button>
+                <div className="text-sm font-medium text-gray-100">{monthName} {yearNum}</div>
+                <button type="button" onClick={nextMonth} className="px-2 py-1 rounded hover:bg-gray-100">▶</button>
               </div>
               <div className="grid grid-cols-7 gap-1 text-xs text-center mb-2">
-                {weekdayLabels.map((d) => (
-                  <div key={d} className="font-semibold text-gray-100">
-                    {d}
-                  </div>
-                ))}
+                {weekdayLabels.map((d) => <div key={d} className="font-semibold text-gray-100">{d}</div>)}
               </div>
               <div className="grid grid-cols-7 gap-1 text-sm">
                 {days.map((day, idx) => {
@@ -296,7 +280,14 @@ export default function BookingPage() {
 
             {/* Tijden */}
             <div className="mt-4">
-              <label className="block text-sm font-medium mb-2 text-center">Kies tijd (per uur)</label>
+              <label
+                className="block text-sm font-medium mb-2 text-center"
+                contentEditable={isEditing}
+                suppressContentEditableWarning={true}
+                onInput={(e) => setEditableText({ ...editableText, timesInfo: e.currentTarget.textContent })}
+              >
+                {editableText.timesInfo}
+              </label>
               <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto">
                 {timeSlots.map((t) => {
                   const isSelected = form.time === t;
@@ -315,28 +306,22 @@ export default function BookingPage() {
                     </button>
                   );
                 })}
-                {/* Admin + knop */}
-                {isAdmin && isEditing && selectedDate && (
-                  <button type="button" onClick={addTimeSlot} className="px-2 py-2 rounded border text-sm bg-green-500 text-white hover:bg-green-600">
+                {isAdmin && isEditing && (
+                  <button
+                    type="button"
+                    onClick={addTimeSlot}
+                    className="px-2 py-2 rounded border text-sm bg-green-500 text-white hover:bg-green-600"
+                  >
                     +
                   </button>
                 )}
               </div>
-              <div className="mt-2 text-xs text-gray-600">Selecteer eerst een datum. Tijden zijn per uur van 10:00 t/m 17:00.</div>
             </div>
 
             {/* Personen */}
             <div>
               <label className="block text-sm font-medium mb-1">Aantal personen (max 12)</label>
-              <input
-                name="people"
-                value={form.people}
-                onChange={handleChange}
-                type="number"
-                min="1"
-                max="12"
-                className="w-full border px-3 py-2 rounded"
-              />
+              <input name="people" value={form.people} onChange={handleChange} type="number" min="1" max="12" className="w-full border px-3 py-2 rounded" />
               <div className="mt-2 text-sm font-medium text-gray-700">
                 Totaal prijs: €{form.people ? form.people * 10 : 0}
               </div>
@@ -346,9 +331,7 @@ export default function BookingPage() {
               <button
                 type="submit"
                 disabled={!isFormValid || submitting}
-                className={`px-6 py-3 rounded ${
-                  isFormValid && !submitting ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-blue-300 text-white cursor-not-allowed opacity-70"
-                }`}
+                className={`px-6 py-3 rounded ${isFormValid && !submitting ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-blue-300 text-white cursor-not-allowed opacity-70"}`}
               >
                 {submitting ? "Versturen..." : "Verstuur boeking"}
               </button>
