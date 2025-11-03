@@ -1,10 +1,12 @@
+// controllers/authController.js
 import bcrypt from "bcrypt";
 import { initDB } from "../db.js";
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password)
+  if (!email || !password) {
     return res.status(400).json({ message: "E-mail en wachtwoord zijn verplicht" });
+  }
 
   try {
     const db = await initDB();
@@ -13,24 +15,31 @@ export const login = async (req, res) => {
       [email]
     );
 
-    if (!rows.length)
+    if (!rows.length) {
       return res.status(401).json({ message: "Ongeldige e-mail of wachtwoord" });
+    }
 
     const admin = rows[0];
     const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch)
+    if (!isMatch) {
       return res.status(401).json({ message: "Ongeldige e-mail of wachtwoord" });
+    }
 
     // ✅ Sla sessie op
     req.session.adminId = admin.id;
     req.session.adminEmail = admin.email;
     req.session.role = "admin";
+    req.session.isAdmin = true; // ✅ Belangrijk voor contentRoutes en checks
 
     console.log("SESSION NA LOGIN:", req.session);
 
     res.status(200).json({
       message: "Succesvol ingelogd",
-      admin: { id: admin.id, email: admin.email },
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        isAdmin: true
+      },
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -39,7 +48,7 @@ export const login = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-  req.session.destroy(err => {
+  req.session.destroy((err) => {
     if (err) return res.status(500).json({ message: "Kon sessie niet beëindigen" });
     res.clearCookie("admin_session");
     res.status(200).json({ message: "Succesvol uitgelogd" });
@@ -51,7 +60,8 @@ export const me = (req, res) => {
     res.json({
       adminId: req.session.adminId,
       adminEmail: req.session.adminEmail,
-      role: req.session.role
+      role: req.session.role,
+      isAdmin: req.session.isAdmin, // ✅ Toegevoegd zodat frontend weet dat gebruiker admin is
     });
   } else {
     res.status(401).json({ message: "Niet ingelogd als admin" });

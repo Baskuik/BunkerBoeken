@@ -10,7 +10,8 @@ import nodemailer from "nodemailer";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import settingsRoutes from "./routes/settings.js";
-import bookingsRoutes from "./routes/bookings.js"; // ✅ toegevoegd
+import bookingsRoutes from "./routes/bookings.js"; // ✅ boekingen
+import contentRoutes from "./routes/contentRoutes.js"; // ✅ nieuw toegevoegd
 import { initDB } from "./db.js";
 
 dotenv.config();
@@ -78,7 +79,8 @@ app.use(
 app.use("/api", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/settings", settingsRoutes);
-app.use("/api/bookings", bookingsRoutes); // ✅ toegevoegd
+app.use("/api/bookings", bookingsRoutes); // ✅ boekingen
+app.use("/api/content", contentRoutes); // ✅ contentbeheer (voor bewerkbare pagina’s)
 
 // ===== Debug Routes =====
 app.get("/debug/session", (req, res) => {
