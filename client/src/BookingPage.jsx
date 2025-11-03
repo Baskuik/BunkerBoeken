@@ -25,34 +25,70 @@ export default function BookingPage() {
     timesInfo: "Selecteer eerst een datum. Tijden zijn per uur van 10:00 t/m 17:00.",
     nameLabel: "Naam",
     emailLabel: "E-mail",
-    peopleLabel: "Aantal personen (max 12)",
+    peopleLabel: "Aantal personen",
     totalPriceLabel: "Totaal prijs: €10"
   });
+  const [originalEditableText, setOriginalEditableText] = useState(editableText);
 
-  // Opening hours: extra tijden en verwijderde standaardtijden per datum
+  // Opening hours
   const [openingHours, setOpeningHours] = useState({});
+  const [originalOpeningHours, setOriginalOpeningHours] = useState({});
+
+  // Max personen per datum
+  const [maxPersonsPerDate, setMaxPersonsPerDate] = useState({});
+  const [originalMaxPersonsPerDate, setOriginalMaxPersonsPerDate] = useState({});
+  const [defaultMaxPersons, setDefaultMaxPersons] = useState(12); // default max personen
 
   // Standaard uren 10:00 t/m 17:00
   const standardSlots = Array.from({ length: 8 }, (_, i) => `${String(10 + i).padStart(2, "0")}:00`);
 
-  // Laad instellingen van backend
+  const API_URL = "http://127.0.0.1:5000/api/settings";
+
+  // Load settings from backend
   useEffect(() => {
-    fetch("http://127.0.0.1:5000/api/settings/openingstijden", { credentials: "include" })
+    // Opening hours
+    fetch(`${API_URL}/openingstijden`, { credentials: "include" })
       .then(res => res.json())
-      .then(data => setOpeningHours(data.value || {}))
+      .then(data => {
+        setOpeningHours(data.value || {});
+        setOriginalOpeningHours(data.value || {});
+      })
       .catch(err => console.error("Kon openingstijden niet laden:", err));
 
-    fetch("http://127.0.0.1:5000/api/settings/editableText", { credentials: "include" })
+    // Editable texts
+    fetch(`${API_URL}/editableText`, { credentials: "include" })
       .then(res => res.json())
-      .then(data => { if (data.value) setEditableText(data.value); })
+      .then(data => {
+        if (data.value) {
+          setEditableText(data.value);
+          setOriginalEditableText(data.value);
+        }
+      })
       .catch(err => console.error("Kon editable texts niet laden:", err));
+
+    // Max personen per datum
+    fetch(`${API_URL}/maxpersonen`, { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.value) {
+          setMaxPersonsPerDate(data.value);
+          setOriginalMaxPersonsPerDate(data.value);
+        }
+      })
+      .catch(err => console.error("Kon max personen niet laden:", err));
+
+    // Default max personen
+    fetch(`${API_URL}/maxpersonen/default`, { credentials: "include" })
+      .then(res => res.json())
+      .then(data => { if (data.value) setDefaultMaxPersons(data.value); })
+      .catch(() => setDefaultMaxPersons(12));
   }, []);
 
-  // Controleer admin
+  // Check admin
   useEffect(() => {
     fetch("http://localhost:5000/api/admin/me", { method: "GET", credentials: "include" })
       .then(res => { if (!res.ok) throw new Error(); return res.json(); })
-      .then(data => setIsAdmin(true))
+      .then(() => setIsAdmin(true))
       .catch(() => setIsAdmin(false));
   }, []);
 
@@ -60,13 +96,16 @@ export default function BookingPage() {
 
   const handleChange = e => {
     const { name, value } = e.target;
-    if (name === "people") setForm({ ...form, [name]: value === "" ? "" : Math.max(1, Math.min(12, Number(value))) });
-    else setForm({ ...form, [name]: value });
+    if (name === "people") {
+      const max = selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons;
+      setForm({ ...form, [name]: value === "" ? "" : Math.max(1, Math.min(max, Number(value))) });
+    } else setForm({ ...form, [name]: value });
   };
 
   const handleSubmit = async e => {
     e.preventDefault();
-    const valid = form.name.trim() && emailValid && form.date && form.time && form.people >= 1 && form.people <= 12;
+    const max = selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons;
+    const valid = form.name.trim() && emailValid && form.date && form.time && form.people >= 1 && form.people <= max;
     if (!valid) { setEmailTouched(true); return; }
     setSubmitting(true);
 
@@ -88,57 +127,22 @@ export default function BookingPage() {
     } finally { setSubmitting(false); }
   };
 
-  const isFormValid = form.name.trim() && emailValid && form.date && form.time && form.people >= 1 && form.people <= 12;
+  const isFormValid = () => {
+    const max = selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons;
+    return form.name.trim() && emailValid && form.date && form.time && form.people >= 1 && form.people <= max;
+  };
 
-  // Kalender logica
+  // Kalender functies
   const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
   const firstWeekday = (y, m) => new Date(y, m, 1).getDay();
   const buildCalendarGrid = (y, m) => { const d = []; const l = firstWeekday(y, m); for(let i=0;i<l;i++) d.push(null); for(let i=1;i<=daysInMonth(y,m);i++) d.push(new Date(y,m,i)); while(d.length%7!==0)d.push(null); return d; };
   const formatISO = date => date ? `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}` : "";
-  const onSelectDate = date => { const iso=formatISO(date); setSelectedDate(iso); setForm({...form, date: iso, time:""}); };
-  const onSelectTime = time => setForm({...form, time});
-
-  // Tijden toevoegen/verwijderen/resetten
-  const addTimeSlot = async () => {
-    if(!selectedDate) return alert("Selecteer eerst een datum");
-    const newTime = prompt("Nieuwe tijd (HH:MM) invoeren:", "18:00");
-    if(!newTime) return;
-    const dateTimes = openingHours[selectedDate]?.extra || [];
-    if(!dateTimes.includes(newTime)){
-      const updatedSlots=[...dateTimes,newTime].sort();
-      const updatedHours={...openingHours,[selectedDate]:{extra:updatedSlots,removed:openingHours[selectedDate]?.removed||[]}};
-      setOpeningHours(updatedHours);
-      try { await fetch("http://127.0.0.1:5000/api/settings/openingstijden",{method:"PUT",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({value:updatedHours})}); alert("Nieuwe tijd toegevoegd!"); } 
-      catch(err){ console.error(err); alert("Fout bij opslaan openingstijden"); }
-    } else alert("Deze tijd bestaat al!");
+  const onSelectDate = date => {
+    const iso = formatISO(date);
+    setSelectedDate(iso);
+    setForm({ ...form, date: iso, time: "", people: 1 });
   };
-
-  const removeTimeSlot = async time => {
-    if(!isAdmin || !isEditing || !selectedDate) return;
-    const dateData=openingHours[selectedDate]||{extra:[],removed:[]};
-    let updatedExtra=dateData.extra||[], updatedRemoved=dateData.removed||[];
-    if(standardSlots.includes(time)){ if(!updatedRemoved.includes(time)) updatedRemoved.push(time); }
-    else updatedExtra=updatedExtra.filter(t=>t!==time);
-    const updatedHours={...openingHours,[selectedDate]:{extra:updatedExtra,removed:updatedRemoved}};
-    setOpeningHours(updatedHours);
-    try{ await fetch("http://127.0.0.1:5000/api/settings/openingstijden",{method:"PUT",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({value:updatedHours})}); alert(`Tijd ${time} verwijderd!`); } 
-    catch(err){ console.error(err); alert("Fout bij opslaan openingstijden"); }
-  };
-
-  const resetTimeSlots = async () => {
-    if(!selectedDate) return;
-    const updatedHours={...openingHours,[selectedDate]:{extra:[],removed:[]}};
-    setOpeningHours(updatedHours);
-    try{ await fetch("http://127.0.0.1:5000/api/settings/openingstijden",{method:"PUT",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({value:updatedHours})}); alert("Tijden gereset!"); } 
-    catch(err){ console.error(err); alert("Fout bij opslaan openingstijden"); }
-  };
-
-  const saveEditableText = async () => {
-    try { await fetch("http://127.0.0.1:5000/api/settings/editableText",{method:"PUT",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({value:editableText})}); alert("Teksten opgeslagen!"); } 
-    catch(err){ console.error(err); alert("Fout bij opslaan teksten"); }
-  };
-
-  const toggleEditing = () => { if(isEditing) saveEditableText(); setIsEditing(!isEditing); };
+  const onSelectTime = time => setForm({ ...form, time });
 
   const days = buildCalendarGrid(calendarMonth.getFullYear(), calendarMonth.getMonth());
   const monthName = calendarMonth.toLocaleString("default",{month:"long"});
@@ -150,9 +154,79 @@ export default function BookingPage() {
     ? standardSlots.filter(t => !(openingHours[selectedDate]?.removed||[]).includes(t)).concat(openingHours[selectedDate]?.extra||[]).sort()
     : [];
 
+  // Admin functies
+  const saveChanges = async () => {
+    try {
+      // Editable texts
+      await fetch(`${API_URL}/editableText`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ value: editableText })
+      });
+
+      // Opening hours
+      await fetch(`${API_URL}/openingstijden`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ value: openingHours })
+      });
+
+      // Max personen per datum
+      await fetch(`${API_URL}/maxpersonen`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ value: maxPersonsPerDate })
+      });
+
+      setOriginalEditableText(editableText);
+      setOriginalOpeningHours(openingHours);
+      setOriginalMaxPersonsPerDate(maxPersonsPerDate);
+      alert("Wijzigingen opgeslagen!");
+      setIsEditing(false);
+    } catch (err) {
+      console.error(err);
+      alert("Fout bij opslaan wijzigingen");
+    }
+  };
+
+  const cancelChanges = () => {
+    setEditableText(originalEditableText);
+    setOpeningHours(originalOpeningHours);
+    setMaxPersonsPerDate(originalMaxPersonsPerDate);
+    setIsEditing(false);
+  };
+
+  const toggleEditing = () => setIsEditing(true);
+
+  const addTimeSlot = async () => {
+    if (!selectedDate) return alert("Selecteer eerst een datum");
+    const newTime = prompt("Nieuwe tijd (HH:MM) invoeren:", "18:00");
+    if (!newTime) return;
+    const dateTimes = openingHours[selectedDate]?.extra || [];
+    if (!dateTimes.includes(newTime)) {
+      const updatedSlots = [...dateTimes, newTime].sort();
+      const updatedHours = { ...openingHours, [selectedDate]: { extra: updatedSlots, removed: openingHours[selectedDate]?.removed || [] } };
+      setOpeningHours(updatedHours);
+    } else alert("Deze tijd bestaat al!");
+  };
+
+  const removeTimeSlot = async time => {
+    if (!isAdmin || !isEditing || !selectedDate) return;
+    const dateData = openingHours[selectedDate] || { extra: [], removed: [] };
+    let updatedExtra = dateData.extra || [], updatedRemoved = dateData.removed || [];
+    if (standardSlots.includes(time)) {
+      if (!updatedRemoved.includes(time)) updatedRemoved.push(time);
+    } else updatedExtra = updatedExtra.filter(t => t !== time);
+    const updatedHours = { ...openingHours, [selectedDate]: { extra: updatedExtra, removed: updatedRemoved } };
+    setOpeningHours(updatedHours);
+  };
+
+  const resetTimeSlots = () => {
+    if (!selectedDate) return;
+    const updatedHours = { ...openingHours, [selectedDate]: { extra: [], removed: [] } };
+    setOpeningHours(updatedHours);
+  };
+
   return (
-    <div className="font-sans min-h-screen bg-fixed" style={{backgroundImage:"url('/images/BunkerfotoBuiten.jpg')",backgroundSize:"cover",backgroundPosition:"center",backgroundRepeat:"no-repeat"}}>
-      <div style={{minHeight:"100vh",backgroundColor:"rgba(255,255,255,0.55)"}}>
+    <div className="font-sans min-h-screen bg-fixed" style={{ backgroundImage: "url('/images/BunkerfotoBuiten.jpg')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
+      <div style={{ minHeight: "100vh", backgroundColor: "rgba(255,255,255,0.55)" }}>
         {/* Navbar */}
         <nav className="flex justify-between items-center px-8 py-4 bg-gray-500 shadow-sm">
           <div className="text-2xl font-bold text-white">Bunker rondleidingen</div>
@@ -166,35 +240,34 @@ export default function BookingPage() {
           </ul>
         </nav>
 
-        {/* Admin bewerken knop */}
+        {/* Admin buttons */}
         {isAdmin && (
-          <div className="flex justify-end max-w-3xl mx-auto px-4 py-2">
-            <button onClick={toggleEditing} className={`px-4 py-2 rounded ${isEditing ? "bg-green-500 hover:bg-green-600" : "bg-yellow-500 hover:bg-yellow-600"} text-white`}>
-              {isEditing ? "Done" : "Pagina bewerken"}
-            </button>
+          <div className="flex justify-end max-w-3xl mx-auto px-4 py-2 space-x-2">
+            {!isEditing ? (
+              <button onClick={toggleEditing} className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Pagina bewerken</button>
+            ) : (
+              <>
+                <button onClick={saveChanges} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Wijzigingen opslaan</button>
+                <button onClick={cancelChanges} className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">Annuleren</button>
+              </>
+            )}
           </div>
         )}
 
-        {/* Form en kalender */}
+        {/* Form + Calendar */}
         <div className="max-w-3xl mx-auto px-4 py-12">
-          <h2
-            className="text-2xl font-bold mb-4"
-            contentEditable={isEditing}
-            suppressContentEditableWarning={true}
-            onInput={(e) => setEditableText({ ...editableText, title: e.currentTarget.textContent })}
-          >
+          <h2 className="text-2xl font-bold mb-4"
+              contentEditable={isEditing} suppressContentEditableWarning
+              onInput={(e) => setEditableText({ ...editableText, title: e.currentTarget.textContent })}>
             {editableText.title}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4 bg-gray-300 rounded shadow p-6">
             {/* Naam */}
             <div>
-              <label
-                className="block text-sm font-medium mb-1"
-                contentEditable={isEditing}
-                suppressContentEditableWarning={true}
-                onInput={(e) => setEditableText({ ...editableText, nameLabel: e.currentTarget.textContent })}
-              >
+              <label className="block text-sm font-medium mb-1"
+                     contentEditable={isEditing} suppressContentEditableWarning
+                     onInput={(e) => setEditableText({ ...editableText, nameLabel: e.currentTarget.textContent })}>
                 {editableText.nameLabel}
               </label>
               <input name="name" value={form.name} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
@@ -202,12 +275,9 @@ export default function BookingPage() {
 
             {/* E-mail */}
             <div>
-              <label
-                className="block text-sm font-medium mb-1"
-                contentEditable={isEditing}
-                suppressContentEditableWarning={true}
-                onInput={(e) => setEditableText({ ...editableText, emailLabel: e.currentTarget.textContent })}
-              >
+              <label className="block text-sm font-medium mb-1"
+                     contentEditable={isEditing} suppressContentEditableWarning
+                     onInput={(e) => setEditableText({ ...editableText, emailLabel: e.currentTarget.textContent })}>
                 {editableText.emailLabel}
               </label>
               <input
@@ -248,18 +318,12 @@ export default function BookingPage() {
                   );
                 })}
               </div>
-              <div className="mt-3 text-xs text-gray-200">
-                Klik een datum om te selecteren. Grijze datums zijn in het verleden of al geboekt.
-              </div>
             </div>
 
             {/* Tijden info */}
-            <label
-              className="block text-sm font-medium mb-2 text-center"
-              contentEditable={isEditing}
-              suppressContentEditableWarning={true}
-              onInput={(e) => setEditableText({ ...editableText, timesInfo: e.currentTarget.textContent })}
-            >
+            <label className="block text-sm font-medium mb-2 text-center"
+                   contentEditable={isEditing} suppressContentEditableWarning
+                   onInput={(e) => setEditableText({ ...editableText, timesInfo: e.currentTarget.textContent })}>
               {editableText.timesInfo}
             </label>
 
@@ -278,21 +342,11 @@ export default function BookingPage() {
                   </button>
                 ))}
                 {isAdmin && isEditing && (
-                  <button
-                    type="button"
-                    onClick={addTimeSlot}
-                    className="px-2 py-2 rounded border text-sm bg-green-500 text-white hover:bg-green-600"
-                  >
-                    +
-                  </button>
+                  <button type="button" onClick={addTimeSlot} className="px-2 py-2 rounded border text-sm bg-green-500 text-white hover:bg-green-600">+</button>
                 )}
               </div>
               {isAdmin && isEditing && selectedDate && (
-                <button
-                  type="button"
-                  onClick={resetTimeSlots}
-                  className="mt-2 px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 text-sm"
-                >
+                <button type="button" onClick={resetTimeSlots} className="mt-2 px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 text-sm">
                   Reset tijden voor deze datum
                 </button>
               )}
@@ -300,21 +354,31 @@ export default function BookingPage() {
 
             {/* Personen */}
             <div>
-              <label
-                className="block text-sm font-medium mb-1"
-                contentEditable={isEditing}
-                suppressContentEditableWarning={true}
-                onInput={(e) => setEditableText({ ...editableText, peopleLabel: e.currentTarget.textContent })}
-              >
-                {editableText.peopleLabel}
+              <label className="block text-sm font-medium mb-1">
+                {`Aantal personen (max ${selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons})`}
               </label>
-              <input name="people" value={form.people} onChange={handleChange} type="number" min="1" max="12" className="w-full border px-3 py-2 rounded" />
-              <div
-                className="mt-2 text-sm font-medium text-gray-700"
-                contentEditable={isEditing}
-                suppressContentEditableWarning={true}
-                onInput={(e) => setEditableText({ ...editableText, totalPriceLabel: e.currentTarget.textContent })}
-              >
+              {isAdmin && isEditing && selectedDate && (
+                <input
+                  type="number"
+                  value={maxPersonsPerDate[selectedDate] || defaultMaxPersons}
+                  min="1"
+                  onChange={(e) => setMaxPersonsPerDate({
+                    ...maxPersonsPerDate,
+                    [selectedDate]: Number(e.target.value)
+                  })}
+                  className="w-full border px-3 py-2 rounded mb-2"
+                />
+              )}
+              <input
+                name="people"
+                value={form.people}
+                onChange={handleChange}
+                type="number"
+                min="1"
+                max={selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons}
+                className="w-full border px-3 py-2 rounded"
+              />
+              <div className="mt-2 text-sm font-medium text-gray-700">
                 {editableText.totalPriceLabel.replace(/\d+/, form.people ? form.people * 10 : 0)}
               </div>
             </div>
@@ -322,8 +386,8 @@ export default function BookingPage() {
             <div className="flex justify-center mt-6">
               <button
                 type="submit"
-                disabled={!isFormValid || submitting}
-                className={`px-6 py-3 rounded ${isFormValid && !submitting ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-blue-300 text-white cursor-not-allowed opacity-70"}`}
+                disabled={!isFormValid() || submitting}
+                className={`px-6 py-3 rounded ${isFormValid() && !submitting ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-blue-300 text-white cursor-not-allowed opacity-70"}`}
               >
                 {submitting ? "Versturen..." : "Verstuur boeking"}
               </button>
