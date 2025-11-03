@@ -4,32 +4,25 @@ import { Link } from "react-router-dom";
 export default function HomePage() {
   return (
     <div className="font-sans text-gray-800">
-      {/* Navbar */}
-      <nav className="flex justify-between items-center px-10 py-5 bg-white shadow-sm border-b">
-        <div className="text-2xl font-bold">name</div>
-        <ul className="flex space-x-8 text-gray-700 font-medium">
-          <li>
-            <Link to="/" className="hover:text-blue-600">
-              home
-            </Link>
-          </li>
-          <li>
-            <Link to="/verhaal" className="hover:text-blue-600">
-              verhaal
-            </Link>
-          </li>
-          <li>
-            <Link to="/boeken" className="hover:text-blue-600">
-              boeken
-            </Link>
-          </li>
-          <li>
-            <Link to="/contact" className="text-blue-600 font-semibold">
-              contact
-            </Link>
-          </li>
-        </ul>
-      </nav>
+      <nav className="fixed top-0 left-0 w-full z-50 flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-500 bg-opacity-95 backdrop-blur-md shadow-md space-y-2 sm:space-y-0">
+  <div className="text-xl sm:text-2xl font-bold text-white">Bunker rondleidingen</div>
+  <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
+    <li>
+      <a href="/" className="hover:text-blue-300">home</a>
+    </li>
+    <li>
+      <a href="/Verhaal" className="hover:text-blue-300">verhaal</a>
+    </li>
+    <li>
+      <a href="/boeken" className="hover:text-blue-300">boeken</a>
+    </li>
+    <li>
+      <a href="/Contact" className="hover:text-blue-300 font-semibold">contact</a>
+    </li>
+  </ul>
+</nav>
+
+
 
       {/* Hero section */}
       <section
@@ -42,9 +35,9 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black bg-opacity-40"></div>
 
         <div className="relative z-10 text-white max-w-2xl">
-          <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">The title!</h1>
+          <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">Bunker Rondleiding</h1>
           <p className="text-lg mb-6 drop-shadow-md">
-            Some text describing the site or event.
+            De site om bunkers te boeken
           </p>
           <Link
             to="/boeken"
@@ -70,7 +63,7 @@ export default function HomePage() {
         {/* Two-column section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-20">
           {/* Box 1 */}
-          <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center">
+          <div className="bg-grey rounded-lg shadow-md p-6 flex flex-col items-center">
             <img
               src="https://tse1.mm.bing.net/th/id/OIP.cOuSJr_evsOMEOEiOJQgkwHaDU?rs=1&pid=ImgDetMain&o=7&rm=3"
               alt="Eerste sectie"

@@ -1,15 +1,23 @@
 export default function VerhaalPage() {
   return (
     <div className="font-sans text-gray-800">
-      {/* Navbar */}
-      <nav className="flex justify-between items-center px-10 py-5 bg-white shadow-sm border-b">
-        <div className="text-2xl font-bold">name</div>
-        <ul className="flex space-x-8 text-gray-700 font-medium">
-         <li><a href="/HomePage" className="hover:text-blue-600">home</a></li>
-          <li><a href="/VerhaalPage" className="hover:text-blue-600">verhaal</a></li>
-          <li><a href="/ContactPage" className="text-blue-600 font-semibold">contact</a></li>
-        </ul>
-      </nav>
+  <nav className="fixed top-0 left-0 w-full z-50 flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-500 bg-opacity-95 backdrop-blur-md shadow-md space-y-2 sm:space-y-0">
+  <div className="text-xl sm:text-2xl font-bold text-white">Bunker rondleidingen</div>
+  <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
+    <li>
+      <a href="/" className="hover:text-blue-300">home</a>
+    </li>
+    <li>
+      <a href="/Verhaal" className="hover:text-blue-300">verhaal</a>
+    </li>
+    <li>
+      <a href="/boeken" className="hover:text-blue-300">boeken</a>
+    </li>
+    <li>
+      <a href="/Contact" className="hover:text-blue-300 font-semibold">contact</a>
+    </li>
+  </ul>
+</nav>
 
       {/* Header section */}
 <section
@@ -24,13 +32,11 @@ export default function VerhaalPage() {
 
   {/* Tekst boven de afbeelding */}
   <div className="relative z-10 text-white max-w-2xl">
-    <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">The title!</h1>
+    <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">Info</h1>
     <p className="text-lg mb-6 drop-shadow-md">
-      Some text describing the site or event.
+      Informatie over onze bunker 
     </p>
-    <button className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-      Button
-    </button>
+    
   </div>
 </section>
 

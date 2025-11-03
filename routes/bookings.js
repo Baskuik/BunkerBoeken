@@ -1,11 +1,9 @@
-// routes/bookingRoutes.js
 import express from "express";
 import nodemailer from "nodemailer";
-import { db } from "../index.js"; // database connectie
+import { db } from "../index.js"; // database connection
 
 const router = express.Router();
 
-// POST /api/bookings
 router.post("/", async (req, res) => {
   try {
     const { name, email, date, time, people } = req.body;
@@ -14,19 +12,17 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Alle velden zijn verplicht" });
     }
 
-    // Bereken prijs
-    const prijs = Number(people) * 10;
+    const prijs = Number(people) * 10; // calculate price locally
 
-    // Opslaan in database
+    // Save to DB without "prijs"
     const [result] = await db.execute(
-      "INSERT INTO bookings (name, email, date, time, people, prijs) VALUES (?, ?, ?, ?, ?, ?)",
-      [name, email, date, time, people, prijs]
+      "INSERT INTO bookings (name, email, date, time, people) VALUES (?, ?, ?, ?, ?)",
+      [name, email, date, time, people]
     );
 
     const bookingId = result.insertId;
     const createdAt = new Date().toISOString();
 
-    // Mail HTML
     const mailHtml = `
       <h2>Bevestiging boeking</h2>
       <p><b>Bevestigingsnummer:</b> ${bookingId}</p>
@@ -38,14 +34,10 @@ router.post("/", async (req, res) => {
       <p><b>Prijs:</b> €${prijs}</p>
       <p><b>Gemaakt op:</b> ${createdAt}</p>
       <h3>Locatie</h3>
-      <p>
-        Bunker Museum (voorbeeldadres):<br />
-        Hoofdstraat 1, 1234 AB, Plaatsnaam
-      </p>
+      <p>Bunker Museum (voorbeeldadres):<br />Hoofdstraat 1, 1234 AB, Plaatsnaam</p>
       <p><i>Let op: dit is een tijdelijke placeholder.</i></p>
     `;
 
-    // Mail versturen
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -61,7 +53,6 @@ router.post("/", async (req, res) => {
       html: mailHtml,
     });
 
-    // Response naar frontend
     res.json({
       id: bookingId,
       name,
@@ -73,7 +64,6 @@ router.post("/", async (req, res) => {
       created_at: createdAt,
       message: "Boeking succesvol en e-mail verzonden",
     });
-
   } catch (err) {
     console.error("Fout bij boeking:", err);
     res.status(500).json({ error: "Fout bij verwerken boeking" });

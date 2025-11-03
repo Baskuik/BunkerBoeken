@@ -11,12 +11,12 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
-  const [bookedTimes, setBookedTimes] = useState([]);
+  const [bookedTimesByDate, setBookedTimesByDate] = useState({}); // { '2025-10-31': ['10:00','11:00'] }
   const [bookedTimesLoading, setBookedTimesLoading] = useState(false);
   const [bookedTimesError, setBookedTimesError] = useState(false);
+  const [fullyBookedDates, setFullyBookedDates] = useState([]);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
-
   // Helpers
   const formatISO = (date) =>
     date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` : "";
@@ -47,37 +47,80 @@ export default function BookingPage() {
     return days;
   };
 
+  // Check if a date is fully booked
+  const isDateFullyBooked = (date) => {
+    if (!date) return false;
+    const iso = formatISO(date);
+    return fullyBookedDates.includes(iso);
+  };
+
   // Fetch booked times when a date is selected
   useEffect(() => {
-    if (!selectedDate) return;
+  if (!selectedDate) return;
 
-    const fetchBookedTimes = async () => {
-      try {
-        setBookedTimesLoading(true);
-        setBookedTimesError(false);
+  const fetchBookedTimes = async () => {
+    try {
+      setBookedTimesLoading(true);
+      setBookedTimesError(false);
 
-        const res = await fetch(`http://localhost:5000/api/bookings?date=${selectedDate}`);
-        if (!res.ok) {
-          if (res.status === 404) {
-            setBookedTimes([]); // no bookings
-            return;
-          }
-          throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(`http://localhost:5000/api/bookings?date=${selectedDate}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          setBookedTimesByDate(prev => ({ ...prev, [selectedDate]: [] }));
+          return;
         }
-
-        const data = await res.json();
-        setBookedTimes(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Error fetching booked times:", err);
-        setBookedTimes([]);
-        setBookedTimesError(true);
-      } finally {
-        setBookedTimesLoading(false);
+        throw new Error(`HTTP ${res.status}`);
       }
-    };
 
-    fetchBookedTimes();
-  }, [selectedDate]);
+      const data = await res.json();
+      const times = Array.isArray(data)
+        ? data.map((b) => b?.time).filter(Boolean)
+        : [];
+
+      // Store booked times for this specific date
+      setBookedTimesByDate(prev => ({ ...prev, [selectedDate]: times }));
+
+      // Mark fully booked if all slots taken
+      if (times.length >= timeSlots.length && !fullyBookedDates.includes(selectedDate)) {
+        setFullyBookedDates(prev => [...prev, selectedDate]);
+      }
+    } catch (err) {
+      console.error("Error fetching booked times:", err);
+      setBookedTimesByDate(prev => ({ ...prev, [selectedDate]: [] }));
+      setBookedTimesError(true);
+    } finally {
+      setBookedTimesLoading(false);
+    }
+  };
+
+  fetchBookedTimes();
+}, [selectedDate, timeSlots.length, fullyBookedDates]); // removed fullyBookedDates
+  const bookedTimes = bookedTimesByDate[selectedDate] || [];
+
+{timeSlots.map((t) => {
+  const isBooked = bookedTimes.some(bt => bt.slice(0, 5) === t);
+  const disableTime =
+    !selectedDate || bookedTimesLoading || bookedTimesError || isBooked || isTimePast(selectedDate, t);
+  const isSelected = form.time === t;
+  return (
+    <button
+      key={t}
+      type="button"
+      onClick={() => !disableTime && onSelectTime(t)}
+      disabled={disableTime}
+      className={`px-2 py-2 rounded border text-sm ${
+        isSelected
+          ? "bg-blue-600 text-white"
+          : disableTime
+          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+          : "hover:bg-blue-50"
+      }`}
+    >
+      {t}
+    </button>
+  );
+})}
+
 
   useEffect(() => {
     if (form.date) setSelectedDate(form.date);
@@ -95,6 +138,7 @@ export default function BookingPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const valid =
       form.name.trim() &&
       emailValid &&
@@ -113,7 +157,7 @@ export default function BookingPage() {
 
     try {
       const totalPrice = Number(form.people) * 10;
-      const bookingData = { ...form, prijs: totalPrice };
+      const bookingData = { ...form }; // do not send prijs to backend if DB doesn't have it
 
       const res = await fetch("http://localhost:5000/api/bookings", {
         method: "POST",
@@ -129,7 +173,7 @@ export default function BookingPage() {
 
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-      const bookingPayload = { id: data.id || "pending", ...bookingData, created_at: new Date().toISOString() };
+      const bookingPayload = { id: data.id || "pending", ...bookingData, prijs: totalPrice, created_at: new Date().toISOString() };
 
       navigate(`/booking-confirm/${bookingPayload.id}`, { state: { booking: bookingPayload } });
     } catch (err) {
@@ -162,16 +206,22 @@ export default function BookingPage() {
   const nextMonth = () => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
 
   const onSelectDate = (date) => {
-    const iso = formatISO(date);
-    setSelectedDate(iso);
-    setForm({ ...form, date: iso, time: "" });
-  };
+  const iso = formatISO(date);
+  setSelectedDate(iso);
+  setForm({ ...form, date: iso, time: "" });
+  // Clear previously selected times for this UI update
+  if (!bookedTimesByDate[iso]) {
+    setBookedTimesByDate(prev => ({ ...prev, [iso]: [] }));
+  }
+};  
   const onSelectTime = (time) => setForm({ ...form, time });
 
   const days = buildCalendarGrid(calendarMonth.getFullYear(), calendarMonth.getMonth());
   const monthName = calendarMonth.toLocaleString("default", { month: "long" });
   const yearNum = calendarMonth.getFullYear();
   const weekdayLabels = ["Su", "Mo", "Tue", "We", "Th", "Fr", "Sa"];
+
+  
 
   return (
     <div
@@ -189,11 +239,9 @@ export default function BookingPage() {
           <div className="text-xl sm:text-2xl font-bold text-white">Bunker rondleidingen</div>
           <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
             <li><Link to="/" className="hover:text-blue-300">home</Link></li>
-            <li><a href="#overons" className="hover:text-blue-300">over ons</a></li>
-            <li><a href="#verhaal" className="hover:text-blue-300">verhaal</a></li>
-            <li><a href="#rondleiding" className="hover:text-blue-300">rondleiding</a></li>
+            <li><a href="verhaal" className="hover:text-blue-300">verhaal</a></li>
             <li><Link to="/boeken" className="hover:text-blue-300">boeken</Link></li>
-            <li><a href="#contact" className="hover:text-blue-300">contact</a></li>
+            <li><a href="contact" className="hover:text-blue-300">contact</a></li>
           </ul>
         </nav>
 
@@ -255,17 +303,18 @@ export default function BookingPage() {
                 {days.map((day, idx) => {
                   const isSelected = day && formatISO(day) === selectedDate;
                   const isPast = day && isDayPast(day);
+                  const isFull = day && isDateFullyBooked(day);
                   return (
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => day && !isPast && onSelectDate(day)}
-                      disabled={!day || isPast}
+                      onClick={() => day && !isPast && !isFull && onSelectDate(day)}
+                      disabled={!day || isPast || isFull}
                       className={`w-full h-10 flex items-center justify-center rounded ${
                         day
                           ? isSelected
                             ? "bg-blue-600 text-white"
-                            : isPast
+                            : isPast || isFull
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                             : "text-gray-100 hover:bg-gray-500"
                           : ""
@@ -341,3 +390,4 @@ export default function BookingPage() {
     </div>
   );
 }
+
