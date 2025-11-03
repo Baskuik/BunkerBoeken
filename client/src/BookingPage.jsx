@@ -37,11 +37,15 @@ export default function BookingPage() {
   // Max personen per datum
   const [maxPersonsPerDate, setMaxPersonsPerDate] = useState({});
   const [originalMaxPersonsPerDate, setOriginalMaxPersonsPerDate] = useState({});
-  const [defaultMaxPersons, setDefaultMaxPersons] = useState(12); // default max personen
+  const [defaultMaxPersons, setDefaultMaxPersons] = useState(12);
 
-  // Standaard uren 10:00 t/m 17:00
+  // Price per date
+  const [pricePerDate, setPricePerDate] = useState({});
+  const [originalPricePerDate, setOriginalPricePerDate] = useState({});
+  const [defaultPrice, setDefaultPrice] = useState(10.0);
+
+  // Standard time slots 10:00-17:00
   const standardSlots = Array.from({ length: 8 }, (_, i) => `${String(10 + i).padStart(2, "0")}:00`);
-
   const API_URL = "http://127.0.0.1:5000/api/settings";
 
   // Load settings from backend
@@ -82,6 +86,23 @@ export default function BookingPage() {
       .then(res => res.json())
       .then(data => { if (data.value) setDefaultMaxPersons(data.value); })
       .catch(() => setDefaultMaxPersons(12));
+
+    // Price per date
+    fetch(`${API_URL}/pricePerDate`, { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.value) {
+          setPricePerDate(data.value);
+          setOriginalPricePerDate(data.value);
+        }
+      })
+      .catch(err => console.error("Kon prijs per datum niet laden:", err));
+
+    // Default price
+    fetch(`${API_URL}/pricePerDate/default`, { credentials: "include" })
+      .then(res => res.json())
+      .then(data => { if (data.value) setDefaultPrice(data.value); })
+      .catch(() => setDefaultPrice(10));
   }, []);
 
   // Check admin
@@ -97,20 +118,23 @@ export default function BookingPage() {
   const handleChange = e => {
     const { name, value } = e.target;
     if (name === "people") {
-      const max = selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons;
+      const max = selectedDate ? (maxPersonsPerDate[selectedDate] ?? defaultMaxPersons) : defaultMaxPersons;
       setForm({ ...form, [name]: value === "" ? "" : Math.max(1, Math.min(max, Number(value))) });
     } else setForm({ ...form, [name]: value });
   };
 
   const handleSubmit = async e => {
     e.preventDefault();
-    const max = selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons;
-    const valid = form.name.trim() && emailValid && form.date && form.time && form.people >= 1 && form.people <= max;
-    if (!valid) { setEmailTouched(true); return; }
+    const max = selectedDate ? (maxPersonsPerDate[selectedDate] ?? defaultMaxPersons) : defaultMaxPersons;
+    if (!form.name.trim() || !emailValid || !form.date || !form.time || form.people < 1 || form.people > max) {
+      setEmailTouched(true);
+      return;
+    }
     setSubmitting(true);
 
     try {
-      const totalPrice = Number(form.people) * 10;
+      const price = selectedDate ? (pricePerDate[selectedDate] ?? defaultPrice) : defaultPrice;
+      const totalPrice = Number(form.people) * price;
       const bookingData = { ...form, prijs: totalPrice };
       const res = await fetch("http://127.0.0.1:5000/api/bookings", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -123,19 +147,26 @@ export default function BookingPage() {
       navigate(`/booking-confirm/${bookingPayload.id || "pending"}`, { state: { booking: bookingPayload } });
     } catch (err) {
       console.error(err);
-      navigate(`/booking-confirm/pending`, { state: { booking: { ...form, prijs: Number(form.people) * 10, created_at: new Date().toISOString(), serverError: err.message || "network error" } } });
+      navigate(`/booking-confirm/pending`, { state: { booking: { ...form, prijs: Number(form.people) * (selectedDate ? (pricePerDate[selectedDate] ?? defaultPrice) : defaultPrice), created_at: new Date().toISOString(), serverError: err.message || "network error" } } });
     } finally { setSubmitting(false); }
   };
 
   const isFormValid = () => {
-    const max = selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons;
+    const max = selectedDate ? (maxPersonsPerDate[selectedDate] ?? defaultMaxPersons) : defaultMaxPersons;
     return form.name.trim() && emailValid && form.date && form.time && form.people >= 1 && form.people <= max;
   };
 
   // Kalender functies
   const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
   const firstWeekday = (y, m) => new Date(y, m, 1).getDay();
-  const buildCalendarGrid = (y, m) => { const d = []; const l = firstWeekday(y, m); for(let i=0;i<l;i++) d.push(null); for(let i=1;i<=daysInMonth(y,m);i++) d.push(new Date(y,m,i)); while(d.length%7!==0)d.push(null); return d; };
+  const buildCalendarGrid = (y, m) => {
+    const d = [];
+    const l = firstWeekday(y, m);
+    for (let i = 0; i < l; i++) d.push(null);
+    for (let i = 1; i <= daysInMonth(y, m); i++) d.push(new Date(y, m, i));
+    while (d.length % 7 !== 0) d.push(null);
+    return d;
+  };
   const formatISO = date => date ? `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}` : "";
   const onSelectDate = date => {
     const iso = formatISO(date);
@@ -175,9 +206,16 @@ export default function BookingPage() {
         credentials: "include", body: JSON.stringify({ value: maxPersonsPerDate })
       });
 
+      // Price per date
+      await fetch(`${API_URL}/pricePerDate`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ value: pricePerDate })
+      });
+
       setOriginalEditableText(editableText);
       setOriginalOpeningHours(openingHours);
       setOriginalMaxPersonsPerDate(maxPersonsPerDate);
+      setOriginalPricePerDate(pricePerDate);
       alert("Wijzigingen opgeslagen!");
       setIsEditing(false);
     } catch (err) {
@@ -190,39 +228,41 @@ export default function BookingPage() {
     setEditableText(originalEditableText);
     setOpeningHours(originalOpeningHours);
     setMaxPersonsPerDate(originalMaxPersonsPerDate);
+    setPricePerDate(originalPricePerDate);
     setIsEditing(false);
   };
 
   const toggleEditing = () => setIsEditing(true);
 
-  const addTimeSlot = async () => {
+  const addTimeSlot = () => {
     if (!selectedDate) return alert("Selecteer eerst een datum");
     const newTime = prompt("Nieuwe tijd (HH:MM) invoeren:", "18:00");
     if (!newTime) return;
     const dateTimes = openingHours[selectedDate]?.extra || [];
     if (!dateTimes.includes(newTime)) {
       const updatedSlots = [...dateTimes, newTime].sort();
-      const updatedHours = { ...openingHours, [selectedDate]: { extra: updatedSlots, removed: openingHours[selectedDate]?.removed || [] } };
-      setOpeningHours(updatedHours);
+      setOpeningHours({ ...openingHours, [selectedDate]: { extra: updatedSlots, removed: openingHours[selectedDate]?.removed || [] } });
     } else alert("Deze tijd bestaat al!");
   };
 
-  const removeTimeSlot = async time => {
+  const removeTimeSlot = time => {
     if (!isAdmin || !isEditing || !selectedDate) return;
     const dateData = openingHours[selectedDate] || { extra: [], removed: [] };
     let updatedExtra = dateData.extra || [], updatedRemoved = dateData.removed || [];
     if (standardSlots.includes(time)) {
       if (!updatedRemoved.includes(time)) updatedRemoved.push(time);
     } else updatedExtra = updatedExtra.filter(t => t !== time);
-    const updatedHours = { ...openingHours, [selectedDate]: { extra: updatedExtra, removed: updatedRemoved } };
-    setOpeningHours(updatedHours);
+    setOpeningHours({ ...openingHours, [selectedDate]: { extra: updatedExtra, removed: updatedRemoved } });
   };
 
   const resetTimeSlots = () => {
     if (!selectedDate) return;
-    const updatedHours = { ...openingHours, [selectedDate]: { extra: [], removed: [] } };
-    setOpeningHours(updatedHours);
+    setOpeningHours({ ...openingHours, [selectedDate]: { extra: [], removed: [] } });
   };
+
+  // Bereken totaalprijs dynamisch
+  const currentPrice = selectedDate ? (pricePerDate[selectedDate] ?? defaultPrice) : defaultPrice;
+  const totalPrice = form.people ? (form.people * currentPrice).toFixed(2) : currentPrice.toFixed(2);
 
   return (
     <div className="font-sans min-h-screen bg-fixed" style={{ backgroundImage: "url('/images/BunkerfotoBuiten.jpg')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
@@ -352,15 +392,15 @@ export default function BookingPage() {
               )}
             </div>
 
-            {/* Personen */}
+            {/* Personen en prijs */}
             <div>
               <label className="block text-sm font-medium mb-1">
-                {`Aantal personen (max ${selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons})`}
+                {`Aantal personen (max ${selectedDate ? (maxPersonsPerDate[selectedDate] ?? defaultMaxPersons) : defaultMaxPersons})`}
               </label>
               {isAdmin && isEditing && selectedDate && (
                 <input
                   type="number"
-                  value={maxPersonsPerDate[selectedDate] || defaultMaxPersons}
+                  value={selectedDate ? (maxPersonsPerDate[selectedDate] ?? defaultMaxPersons) : defaultMaxPersons}
                   min="1"
                   onChange={(e) => setMaxPersonsPerDate({
                     ...maxPersonsPerDate,
@@ -375,11 +415,25 @@ export default function BookingPage() {
                 onChange={handleChange}
                 type="number"
                 min="1"
-                max={selectedDate ? (maxPersonsPerDate[selectedDate] || defaultMaxPersons) : defaultMaxPersons}
-                className="w-full border px-3 py-2 rounded"
+                max={selectedDate ? (maxPersonsPerDate[selectedDate] ?? defaultMaxPersons) : defaultMaxPersons}
+                className="w-full border px-3 py-2 rounded mb-2"
               />
+              {/* Prijs per persoon */}
+              {isAdmin && isEditing && selectedDate && (
+                <input
+                  type="number"
+                  value={selectedDate ? (pricePerDate[selectedDate] ?? defaultPrice) : defaultPrice}
+                  min="0"
+                  step="0.01"
+                  onChange={(e) => setPricePerDate({
+                    ...pricePerDate,
+                    [selectedDate]: parseFloat(e.target.value)
+                  })}
+                  className="w-full border px-3 py-2 rounded mb-2"
+                />
+              )}
               <div className="mt-2 text-sm font-medium text-gray-700">
-                {editableText.totalPriceLabel.replace(/\d+/, form.people ? form.people * 10 : 0)}
+                {`Totaal prijs: €${totalPrice}`}
               </div>
             </div>
 
