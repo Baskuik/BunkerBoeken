@@ -80,6 +80,7 @@ app.use("/api", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/bookings", bookingsRoutes); // ✅ boekingen
+app.use("/api/reservations", bookingsRoutes); // ✅ alias toegevoegd
 app.use("/api/content", contentRoutes); // ✅ contentbeheer (voor bewerkbare pagina’s)
 
 // ===== Debug Routes =====

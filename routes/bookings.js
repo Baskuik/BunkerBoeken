@@ -1,6 +1,7 @@
 // routes/bookings.js
 import express from "express";
 import { db, transporter } from "../index.js";
+
 const router = express.Router();
 
 // Helper om {{placeholders}} te vervangen
@@ -19,23 +20,20 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // 1️⃣ Opslaan in DB
     const [result] = await db.execute(
       "INSERT INTO bookings (name, email, date, time, people, prijs, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())",
       [name, email, date, time, people, prijs]
     );
 
     const bookingId = result.insertId;
-    console.log("✅ Insert succesvol, ID:", bookingId);
 
-    // 2️⃣ Haal mailtemplate uit DB
+    // Mailtemplate ophalen
     const [rows] = await db.execute(
       "SELECT `value` FROM settings WHERE `key` = ?",
       ["booking_email_template"]
     );
 
     if (!rows.length) {
-      console.error("❌ Template 'booking_email_template' niet gevonden in DB");
       return res.status(500).json({ error: "Mailtemplate niet gevonden" });
     }
 
@@ -44,7 +42,6 @@ router.post("/", async (req, res) => {
       try {
         stored = JSON.parse(stored);
       } catch (err) {
-        console.error("❌ Ongeldige JSON in DB template:", err);
         return res.status(500).json({ error: "Ongeldige mailtemplate in DB" });
       }
     }
@@ -57,25 +54,19 @@ router.post("/", async (req, res) => {
       html: replacePlaceholders(stored.html || "", data),
     };
 
-    console.log("📧 Gebruikte mailtemplate:", template);
-
-    // 3️⃣ Verstuur mail
     let mailError = null;
     try {
-      const info = await transporter.sendMail({
+      await transporter.sendMail({
         from: `"Bunker Museum" <${process.env.MAIL_USER}>`,
         to: email,
         subject: template.subject,
         text: template.text,
         html: template.html,
       });
-      console.log("✅ Mail verzonden:", info.messageId);
     } catch (err) {
-      console.error("❌ Fout bij verzenden mail:", err);
       mailError = err.message;
     }
 
-    // 4️⃣ Response terug
     res.json({ id: bookingId, mailError });
   } catch (err) {
     console.error("❌ Onverwachte fout:", err);
@@ -83,19 +74,80 @@ router.post("/", async (req, res) => {
   }
 });
 
+// ✅ GET alle boekingen (optioneel filter: upcoming/past)
+router.get("/", async (req, res) => {
+  try {
+    const filter = req.query.filter;
+    let query = "SELECT * FROM bookings";
+
+    if (filter === "upcoming") {
+      query += " WHERE CONCAT(date, ' ', time) >= NOW()";
+    } else if (filter === "past") {
+      query += " WHERE CONCAT(date, ' ', time) < NOW()";
+    }
+
+    query += " ORDER BY date, time";
+    const [rows] = await db.execute(query);
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Fout bij ophalen boekingen:", err);
+    res.status(500).json({ error: "Kon reserveringen niet ophalen" });
+  }
+});
+
 // ✅ GET boeking per ID
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
-
   try {
     const [rows] = await db.execute("SELECT * FROM bookings WHERE id = ?", [id]);
-    if (!rows.length) {
-      return res.status(404).json({ error: "Boeking niet gevonden" });
-    }
+    if (!rows.length) return res.status(404).json({ error: "Boeking niet gevonden" });
     res.json(rows[0]);
   } catch (err) {
     console.error("❌ Fout bij ophalen boeking:", err);
     res.status(500).json({ error: "Kon boeking niet ophalen" });
+  }
+});
+
+// ✅ PUT boeking updaten (admin-dashboard)
+router.put("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, date, time, people, prijs } = req.body;
+
+  if (!name || !date || !time || !people || prijs == null) {
+    return res.status(400).json({ error: "Onvolledige gegevens" });
+  }
+
+  try {
+    const [result] = await db.execute(
+      "UPDATE bookings SET name = ?, date = ?, time = ?, people = ?, prijs = ? WHERE id = ?",
+      [name, date, time, people, prijs, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Boeking niet gevonden" });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Fout bij updaten boeking:", err);
+    res.status(500).json({ error: "Kon boeking niet updaten" });
+  }
+});
+
+// ✅ DELETE boeking
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await db.execute("DELETE FROM bookings WHERE id = ?", [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Boeking niet gevonden" });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Fout bij verwijderen boeking:", err);
+    res.status(500).json({ error: "Kon boeking niet verwijderen" });
   }
 });
 
