@@ -1,11 +1,8 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "@fortawesome/fontawesome-free/css/all.min.css";
 
 export default function ReserveringInzienPage() {
   const navigate = useNavigate();
-  const menuRef = useRef(null);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   // Reservations & loading
   const [reservations, setReservations] = useState([]);
@@ -49,24 +46,12 @@ export default function ReserveringInzienPage() {
   const API_BOOKINGS = "http://127.0.0.1:5000/api/bookings";
   const API_SETTINGS = "http://127.0.0.1:5000/api/settings";
 
-  const handleLogout = async () => {
-    try {
-      await fetch("http://localhost:5000/api/logout", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (e) {} finally {
-      navigate("/adminlogin");
-    }
-  };
-
-  // Fetch data
+  // Fetch reservations
   const fetchReservations = async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(API_BOOKINGS, { credentials: "include" });
+      const res = await fetch(`${API_BOOKINGS}`, { credentials: "include" });
       if (!res.ok) throw new Error("Kon reserveringen niet ophalen");
       const data = await res.json();
       setReservations(data);
@@ -77,6 +62,7 @@ export default function ReserveringInzienPage() {
     }
   };
 
+  // Fetch settings
   const fetchSettings = async () => {
     try {
       const res = await fetch(API_SETTINGS, { credentials: "include" });
@@ -97,20 +83,6 @@ export default function ReserveringInzienPage() {
     fetchSettings();
   }, []);
 
-  // Header dropdown click outside
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
-    };
-    const onKey = (e) => { if (e.key === "Escape") setMenuOpen(false); };
-    document.addEventListener("click", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
-
   // Helpers
   const parseDateTime = (dateStr, timeStr) => new Date(`${dateStr}T${timeStr}:00`);
   const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
@@ -124,27 +96,38 @@ export default function ReserveringInzienPage() {
     return d;
   };
   const formatISO = (date) =>
-    date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` : "";
+    date
+      ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+      : "";
   const todayISO = formatISO(new Date());
 
+  // Datum-specifieke instellingen
   const getDatumSpecifiekeInstellingen = (date) => {
     const prijsPerPerson = pricePerDate[date] ?? defaultPrice;
     const maxPersons = maxPersonsPerDate[date] ?? defaultMaxPersons;
+
+    // Begin altijd met standaardtijden
     let slots = [...standardSlots];
+
+    // Voeg eventuele admin extra tijden toe
     const dateSetting = openingHours[date];
     if (dateSetting && typeof dateSetting === "object" && Array.isArray(dateSetting.extra)) {
       dateSetting.extra.forEach((t) => {
         if (!slots.includes(t)) slots.push(t);
       });
     }
+
+    // Sorteer de tijden correct
     slots.sort((a, b) => {
       const [ah, am] = a.split(":").map(Number);
       const [bh, bm] = b.split(":").map(Number);
       return ah - bh || am - bm;
     });
+
     return { prijsPerPerson, maxPersons, slots };
   };
 
+  // Select date
   const onSelectDate = async (date) => {
     const iso = formatISO(date);
     await fetchSettings();
@@ -222,115 +205,229 @@ export default function ReserveringInzienPage() {
     .slice(0, limit);
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center p-6">
-      {/* Header */}
-      <header className="w-full flex justify-between items-center p-4 mb-10 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl">
-        <div className="flex items-center gap-2 text-white font-semibold text-lg">
-          <div className="w-8 h-8 bg-gray-300 rounded" />
-          Admin
+    <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center">
+      <h1 className="text-3xl font-bold mb-6">Reserveringen Inzien</h1>
+
+      <button
+        onClick={() => navigate("/inzien")}
+        className="px-4 py-3 bg-gray-600 text-white rounded hover:bg-gray-700 transition w-full mb-4"
+      >
+        Terug naar inzien
+      </button>
+
+      <div className="flex gap-3 mb-4">
+        <select
+          value={sortOption}
+          onChange={(e) => setSortOption(e.target.value)}
+          className="px-3 py-2 rounded text-gray-800"
+        >
+          <option value="alphabetical">Alfabetisch (Naam)</option>
+          <option value="price">Prijs (hoog → laag)</option>
+          <option value="datetime">Datum/Tijd</option>
+          <option value="people">Aantal personen</option>
+        </select>
+        <select
+          value={limit}
+          onChange={(e) => setLimit(Number(e.target.value))}
+          className="px-3 py-2 rounded text-gray-800"
+        >
+          <option value={25}>Eerste 25</option>
+          <option value={50}>Eerste 50</option>
+          <option value={100}>Eerste 100</option>
+          <option value={250}>Eerste 250</option>
+          <option value={500}>Eerste 500</option>
+        </select>
+        <button onClick={() => setModalType("add")} className="px-3 py-2 bg-green-600 rounded hover:bg-green-700">
+          Nieuwe boeking
+        </button>
+        <button onClick={fetchReservations} className="px-3 py-2 bg-blue-600 rounded hover:bg-blue-700">
+          Vernieuwen
+        </button>
+      </div>
+
+      {loading ? (
+        <p>Laden…</p>
+      ) : error ? (
+        <p className="text-red-400">{error}</p>
+      ) : (
+        <div className="overflow-x-auto w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
+          <table className="w-full table-auto border-collapse">
+            <thead>
+              <tr className="border-b border-white/20">
+                <th className="py-2 text-left">Naam</th>
+                <th>E-mail</th>
+                <th>Datum</th>
+                <th>Tijd</th>
+                <th>Aantal</th>
+                <th>Prijs</th>
+                <th>Acties</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedReservations.map((r) => (
+                <tr key={r.id} className="border-b border-white/20 hover:bg-white/10">
+                  <td>{r.name}</td>
+                  <td>{r.email}</td>
+                  <td>{r.date}</td>
+                  <td>{r.time}</td>
+                  <td>{r.people}</td>
+                  <td>€{Number(r.prijs).toFixed(2)}</td>
+                  <td className="flex gap-1">
+                    <button
+                      onClick={() => onEditReservation(r)}
+                      className="px-2 py-1 bg-yellow-500 rounded hover:bg-yellow-600"
+                    >
+                      Bewerken
+                    </button>
+                    <button
+                      onClick={() => handleDelete(r.id)}
+                      className="px-2 py-1 bg-red-600 rounded hover:bg-red-700"
+                    >
+                      Verwijderen
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+      )}
 
-        {/* user icon + dropdown */}
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenuOpen((s) => !s)}
-            aria-haspopup="true"
-            aria-expanded={menuOpen}
-            className="p-2 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-            title="Account menu"
-          >
-            <i className="fa-solid fa-circle-user text-xl" />
-          </button>
+      {/* Add/Edit Modal */}
+      {modalType && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 p-6 rounded-2xl w-96 text-white">
+            <h2 className="text-xl font-bold mb-4">
+              {modalType === "add" ? "Nieuwe boeking" : "Bewerk reservering"}
+            </h2>
 
-          {menuOpen && (
-            <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                placeholder="Naam"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="px-3 py-2 rounded text-gray-800"
+              />
+              <input
+                type="email"
+                placeholder="E-mail"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="px-3 py-2 rounded text-gray-800"
+              />
+
+              {/* Kalender */}
+              <div className="p-2 border rounded bg-gray-400">
+                <div className="flex justify-between items-center mb-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
+                    }
+                    className="px-2 py-1 rounded hover:bg-gray-100"
+                  >
+                    ◀
+                  </button>
+                  <div>
+                    {calendarMonth.toLocaleString("default", { month: "long" })}{" "}
+                    {calendarMonth.getFullYear()}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
+                    }
+                    className="px-2 py-1 rounded hover:bg-gray-100"
+                  >
+                    ▶
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-xs text-center mb-2">
+                  {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+                    <div key={d}>{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {buildCalendarGrid(
+                    calendarMonth.getFullYear(),
+                    calendarMonth.getMonth()
+                  ).map((day, idx) => {
+                    const iso = day ? formatISO(day) : "";
+                    const isSelected = iso === selectedDate;
+                    const isPast = iso && iso < todayISO;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        disabled={!day || isPast}
+                        onClick={() => day && onSelectDate(day)}
+                        className={`w-full h-10 flex items-center justify-center rounded ${
+                          isSelected
+                            ? "bg-blue-600 text-white"
+                            : isPast
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : "hover:bg-gray-500"
+                        }`}
+                      >
+                        {day ? day.getDate() : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Tijden */}
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {currentTimeSlots.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => onSelectTime(t)}
+                    className={`px-2 py-2 rounded border ${
+                      formData.time === t ? "bg-blue-600 text-white" : "hover:bg-gray-200"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              {/* Personen en prijs */}
+              <input
+                type="number"
+                min="1"
+                max={formData.maxPersons}
+                value={formData.people}
+                onChange={(e) =>
+                  setFormData({ ...formData, people: Number(e.target.value) })
+                }
+                className="px-3 py-2 rounded text-gray-800"
+              />
+              <div>
+                Totaal prijs: €
+                {(formData.people * (formData.prijsPerPerson ?? defaultPrice)).toFixed(2)}
+              </div>
+            </div>
+
+            {/* Opslaan / Annuleren knoppen */}
+            <div className="flex justify-end gap-2 mt-4">
               <button
-                onClick={() => { setMenuOpen(false); navigate("/account"); }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
+                onClick={() => setModalType("")}
+                className="px-3 py-2 bg-gray-600 rounded hover:bg-gray-700"
               >
-                Account
+                Annuleren
               </button>
               <button
-                onClick={() => { setMenuOpen(false); handleLogout(); }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-b-lg"
+                onClick={handleAddOrUpdate}
+                className="px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
               >
-                Uitloggen
+                {modalType === "add" ? "Toevoegen" : "Opslaan"}
               </button>
             </div>
-          )}
-        </div>
-      </header>
-
-      {/* Main */}
-      <main className="w-full max-w-6xl">
-        <h1 className="text-3xl font-bold text-white mb-6 text-center">Reserveringen Inzien</h1>
-
-        {/* Terug naar inzien knop */}
-        <button
-          onClick={() => navigate("/inzien")}
-          className="w-full mb-6 px-4 py-3 bg-gray-600 text-white rounded hover:bg-gray-700 transition"
-        >
-          Terug naar inzien
-        </button>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 mb-4 justify-center">
-          <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="px-3 py-2 rounded text-gray-800">
-            <option value="alphabetical">Alfabetisch (Naam)</option>
-            <option value="price">Prijs (hoog → laag)</option>
-            <option value="datetime">Datum/Tijd</option>
-            <option value="people">Aantal personen</option>
-          </select>
-          <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="px-3 py-2 rounded text-gray-800">
-            <option value={25}>Eerste 25</option>
-            <option value={50}>Eerste 50</option>
-            <option value={100}>Eerste 100</option>
-            <option value={250}>Eerste 250</option>
-            <option value={500}>Eerste 500</option>
-          </select>
-          <button onClick={() => setModalType("add")} className="px-3 py-2 bg-green-600 rounded hover:bg-green-700">Nieuwe boeking</button>
-          <button onClick={fetchReservations} className="px-3 py-2 bg-blue-600 rounded hover:bg-blue-700">Vernieuwen</button>
-        </div>
-
-        {/* Tabel */}
-        {loading ? (
-          <p className="text-center">Laden…</p>
-        ) : error ? (
-          <p className="text-red-400 text-center">{error}</p>
-        ) : (
-          <div className="overflow-x-auto w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
-            <table className="w-full table-auto border-collapse">
-              <thead>
-                <tr className="border-b border-white/20">
-                  <th className="py-2 text-left">Naam</th>
-                  <th>E-mail</th>
-                  <th>Datum</th>
-                  <th>Tijd</th>
-                  <th>Aantal</th>
-                  <th>Prijs</th>
-                  <th>Acties</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedReservations.map((r) => (
-                  <tr key={r.id} className="border-b border-white/20 hover:bg-white/10">
-                    <td>{r.name}</td>
-                    <td>{r.email}</td>
-                    <td>{r.date}</td>
-                    <td>{r.time}</td>
-                    <td>{r.people}</td>
-                    <td>€{Number(r.prijs).toFixed(2)}</td>
-                    <td className="flex gap-1">
-                      <button onClick={() => onEditReservation(r)} className="px-2 py-1 bg-yellow-500 rounded hover:bg-yellow-600">Bewerken</button>
-                      <button onClick={() => handleDelete(r.id)} className="px-2 py-1 bg-red-600 rounded hover:bg-red-700">Verwijderen</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </div>
   );
 }
