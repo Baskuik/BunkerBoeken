@@ -4,24 +4,27 @@ import { db } from "../index.js";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek.js";
 import weekday from "dayjs/plugin/weekday.js";
+import 'dayjs/locale/nl.js';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekday);
+dayjs.locale('nl');
 
 const router = express.Router();
 
 router.get("/", async (req, res) => {
-  const { timeframe, type } = req.query;
+  const { timeframe, type, date } = req.query;
+  const selectedDate = date ? dayjs(date) : dayjs();
 
   try {
     let labels = [];
     let values = [];
-    const now = dayjs();
-    let year = now.year();
+    let year = selectedDate.year();
+    let weekRange = null;
 
     if (timeframe === "week") {
-      const startOfWeek = now.startOf("week");
-      const endOfWeek = now.endOf("week");
+      const startOfWeek = selectedDate.startOf('isoWeek'); // maandag
+      const endOfWeek = selectedDate.endOf('isoWeek');     // zondag
 
       labels = Array.from({ length: 7 }, (_, i) =>
         startOfWeek.add(i, "day").format("dddd")
@@ -35,9 +38,16 @@ router.get("/", async (req, res) => {
         );
         values.push(type === "geld" ? rows[0].omzet || 0 : rows[0].tickets || 0);
       }
-    } else if (timeframe === "maand") {
-      const startOfMonth = now.startOf("month");
-      const endOfMonth = now.endOf("month");
+
+      weekRange = {
+        start: startOfWeek.format("D-MM-YYYY"),
+        end: endOfWeek.format("D-MM-YYYY")
+      };
+    }
+
+    else if (timeframe === "maand") {
+      const startOfMonth = selectedDate.startOf("month");
+      const endOfMonth = selectedDate.endOf("month");
       const weeksInMonth = Math.ceil(endOfMonth.date() / 7);
 
       labels = Array.from({ length: weeksInMonth }, (_, i) => `Week ${i + 1}`);
@@ -52,15 +62,17 @@ router.get("/", async (req, res) => {
         );
         values.push(type === "geld" ? rows[0].omzet || 0 : rows[0].tickets || 0);
       }
-    } else if (timeframe === "jaar") {
+    }
+
+    else if (timeframe === "jaar") {
       labels = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+        "Jul", "Aug", "Sep", "Okt", "Nov", "Dec",
       ];
 
       for (let i = 0; i < 12; i++) {
-        const start = now.month(i).startOf("month");
-        const end = now.month(i).endOf("month");
+        const start = selectedDate.month(i).startOf("month");
+        const end = selectedDate.month(i).endOf("month");
 
         const [rows] = await db.execute(
           `SELECT SUM(prijs) AS omzet, SUM(people) AS tickets FROM bookings WHERE DATE(date) BETWEEN ? AND ?`,
@@ -70,8 +82,7 @@ router.get("/", async (req, res) => {
       }
     }
 
-    res.json({ labels, values, year });
-
+    res.json({ labels, values, year, weekRange });
   } catch (err) {
     console.error("❌ Fout bij ophalen statistieken:", err);
     res.status(500).json({ error: "Fout bij ophalen statistieken" });
