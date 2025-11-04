@@ -269,7 +269,7 @@ export default function ReserveringInzienPage() {
       {modalType && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-gray-900 p-6 rounded-2xl w-96 text-white">
-            <h2 className="text-xl font-bold mb-4">{modalType === "add" ? "Nieuwe boeking" : "Bewerk boeking"}</h2>
+            <h2 className="text-xl font-bold mb-4">{modalType === "add" ? "Nieuwe boeking" : "Bewerk reservering"}</h2>
 
             <div className="flex flex-col gap-3">
               <input type="text" placeholder="Naam" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="px-3 py-2 rounded text-gray-800"/>
@@ -319,9 +319,10 @@ export default function ReserveringInzienPage() {
               <div>Totaal prijs: €{(formData.people*(formData.prijsPerPerson??defaultPrice)).toFixed(2)}</div>
             </div>
 
+            {/* Opslaan / Annuleren knoppen */}
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setModalType("")} className="px-3 py-2 bg-gray-600 rounded hover:bg-gray-700">Annuleren</button>
-              <button onClick={handleAddOrUpdate} className="px-3 py-2 bg-blue-600 rounded hover:bg-blue-700">{modalType==="add"?"Toevoegen":"Opslaan"}</button>
+              <button onClick={handleAddOrUpdate} className="px-3 py-2 bg-blue-600 rounded hover:bg-blue-700">Wijzigingen opslaan</button>
             </div>
           </div>
         </div>
