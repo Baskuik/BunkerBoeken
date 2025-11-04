@@ -1,5 +1,5 @@
 // StatistiekenPage.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bar } from "react-chartjs-2";
 import {
@@ -12,11 +12,12 @@ import {
   Legend,
 } from "chart.js";
 import dayjs from "dayjs";
-import 'dayjs/locale/nl.js';
+import "dayjs/locale/nl.js";
 import isoWeek from "dayjs/plugin/isoWeek.js";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-dayjs.locale('nl');
+dayjs.locale("nl");
 dayjs.extend(isoWeek);
 
 export default function StatistiekenPage() {
@@ -26,6 +27,8 @@ export default function StatistiekenPage() {
   const [chartData, setChartData] = useState(null);
   const [calendarDate, setCalendarDate] = useState(dayjs());
   const [showCalendar, setShowCalendar] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   const fetchStatistics = async (date = calendarDate) => {
     try {
@@ -46,13 +49,39 @@ export default function StatistiekenPage() {
     fetchStatistics();
   }, [timeframe, type, calendarDate]);
 
+  // Klik buiten dropdown sluit menu
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:5000/api/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {} finally {
+      navigate("/adminlogin");
+    }
+  };
+
   const data = {
     labels: chartData?.labels || [],
     datasets: [
       {
         label: type === "geld" ? "Omzet (€)" : "Tickets verkocht",
         data: chartData?.values || [],
-        backgroundColor: type === "geld" ? "rgba(37, 99, 235, 0.7)" : "rgba(16, 185, 129, 0.7)",
+        backgroundColor:
+          type === "geld"
+            ? "rgba(37, 99, 235, 0.7)"
+            : "rgba(16, 185, 129, 0.7)",
       },
     ],
   };
@@ -64,27 +93,24 @@ export default function StatistiekenPage() {
       legend: { position: "top" },
       title: {
         display: true,
-        text: chartData
-          ? type === "geld"
+        text:
+          chartData &&
+          (type === "geld"
             ? `Omzet per ${timeframe}`
-            : `Tickets verkocht per ${timeframe}`
-          : "",
+            : `Tickets verkocht per ${timeframe}`),
         font: { size: 20 },
       },
-      tooltip: { enabled: true },
     },
     scales: {
       y: { beginAtZero: true },
     },
   };
 
-  // Veilige header info
   const renderHeaderInfo = () => {
     if (!chartData) return "Laden...";
-
     if (timeframe === "week") {
       const { weekRange } = chartData;
-      if (!weekRange) return "Week"; 
+      if (!weekRange) return "Week";
       return `Week van ${weekRange.start} t/m ${weekRange.end}`;
     }
     if (timeframe === "maand") {
@@ -97,7 +123,7 @@ export default function StatistiekenPage() {
 
   // Kalender functies
   const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
-  const firstWeekday = (y, m) => (new Date(y, m, 1).getDay() + 6) % 7; // maandag = 0
+  const firstWeekday = (y, m) => (new Date(y, m, 1).getDay() + 6) % 7;
   const buildCalendarGrid = (y, m) => {
     const d = [];
     const l = firstWeekday(y, m);
@@ -106,28 +132,84 @@ export default function StatistiekenPage() {
     while (d.length % 7 !== 0) d.push(null);
     return d;
   };
-  const formatISO = date => date ? `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}` : "";
-  const onSelectDate = date => {
+  const formatISO = (date) =>
+    date
+      ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}-${String(date.getDate()).padStart(2, "0")}`
+      : "";
+  const onSelectDate = (date) => {
     setCalendarDate(dayjs(date));
     setShowCalendar(false);
   };
 
   const calendarMonth = calendarDate.toDate();
-  const days = buildCalendarGrid(calendarMonth.getFullYear(), calendarMonth.getMonth());
+  const days = buildCalendarGrid(
+    calendarMonth.getFullYear(),
+    calendarMonth.getMonth()
+  );
   const monthName = calendarDate.format("MMMM");
   const yearNum = calendarDate.year();
   const weekdayLabels = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
   const todayISO = formatISO(new Date());
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gray-900 p-6 text-white">
-      <div className="w-full max-w-5xl bg-gray-900 border border-white/20 rounded-2xl p-6 shadow-lg flex flex-col gap-6">
-        <h1 className="text-3xl font-bold text-center">Statistieken Dashboard</h1>
+    <div className="min-h-screen bg-gray-900 flex flex-col items-center p-6 text-white">
+      {/* Header */}
+      <header className="w-full flex justify-between items-center p-4 mb-10 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl">
+        <div className="flex items-center gap-2 text-white font-semibold text-lg">
+          <div className="w-8 h-8 bg-gray-300 rounded" />
+          Admin
+        </div>
 
-        {/* Terug naar inzien knop */}
+        {/* User icon + dropdown */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((s) => !s)}
+            aria-haspopup="true"
+            aria-expanded={menuOpen}
+            className="p-2 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+            title="Account menu"
+          >
+            <i className="fa-solid fa-circle-user text-xl" />
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate("/account");
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
+              >
+                Account
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  handleLogout();
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-b-lg"
+              >
+                Uitloggen
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="flex flex-col items-center w-full max-w-5xl gap-6">
+        <h1 className="text-3xl font-bold text-white mb-6 text-center">
+          Statistieken Dashboard
+        </h1>
+
+        {/* Terug naar inzien knop — zelfde styling als terug naar dashboard */}
         <button
           onClick={() => navigate("/inzien")}
-          className="px-4 py-3 bg-gray-600 text-white rounded hover:bg-gray-700 w-full md:w-auto transition"
+          className="px-4 py-3 bg-gray-600 text-white rounded hover:bg-gray-700 transition w-full"
         >
           Terug naar inzien
         </button>
@@ -160,8 +242,11 @@ export default function StatistiekenPage() {
           </div>
         </div>
 
-        {/* Header info met uitklapbare kalender */}
-        <div className="text-center mb-4 font-medium text-lg cursor-pointer select-none" onClick={() => setShowCalendar(!showCalendar)}>
+        {/* Week info */}
+        <div
+          className="text-center mb-4 font-medium text-lg cursor-pointer select-none"
+          onClick={() => setShowCalendar(!showCalendar)}
+        >
           {renderHeaderInfo()} {showCalendar ? "▲" : "▼"}
         </div>
 
@@ -169,16 +254,35 @@ export default function StatistiekenPage() {
         {showCalendar && (
           <div className="border border-white/20 rounded-2xl p-4 mb-6 max-w-xs mx-auto bg-white/10 backdrop-blur-md">
             <div className="flex justify-between items-center mb-2">
-              <button type="button" onClick={() => setCalendarDate(calendarDate.subtract(1, "month"))} className="px-2 py-1 rounded hover:bg-white/20">◀</button>
-              <div className="font-medium">{monthName} {yearNum}</div>
-              <button type="button" onClick={() => setCalendarDate(calendarDate.add(1, "month"))} className="px-2 py-1 rounded hover:bg-white/20">▶</button>
+              <button
+                type="button"
+                onClick={() => setCalendarDate(calendarDate.subtract(1, "month"))}
+                className="px-2 py-1 rounded hover:bg-white/20"
+              >
+                ◀
+              </button>
+              <div className="font-medium">
+                {monthName} {yearNum}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCalendarDate(calendarDate.add(1, "month"))}
+                className="px-2 py-1 rounded hover:bg-white/20"
+              >
+                ▶
+              </button>
             </div>
             <div className="grid grid-cols-7 gap-1 text-xs text-center mb-2">
-              {weekdayLabels.map(d => <div key={d} className="font-semibold">{d}</div>)}
+              {weekdayLabels.map((d) => (
+                <div key={d} className="font-semibold">
+                  {d}
+                </div>
+              ))}
             </div>
             <div className="grid grid-cols-7 gap-1 text-sm">
               {days.map((day, idx) => {
-                const isSelected = day && formatISO(day) === calendarDate.format("YYYY-MM-DD");
+                const isSelected =
+                  day && formatISO(day) === calendarDate.format("YYYY-MM-DD");
                 const isPast = day && formatISO(day) < todayISO;
                 return (
                   <button
@@ -186,7 +290,13 @@ export default function StatistiekenPage() {
                     type="button"
                     onClick={() => day && !isPast && onSelectDate(day)}
                     disabled={!day || isPast}
-                    className={`w-full h-10 flex items-center justify-center rounded ${day ? (isSelected ? "bg-blue-600 text-white" : "hover:bg-blue-100") : ""}`}
+                    className={`w-full h-10 flex items-center justify-center rounded ${
+                      day
+                        ? isSelected
+                          ? "bg-blue-600 text-white"
+                          : "hover:bg-blue-100"
+                        : ""
+                    }`}
                   >
                     {day ? day.getDate() : ""}
                   </button>
@@ -197,11 +307,13 @@ export default function StatistiekenPage() {
         )}
 
         {/* Chart */}
-        <div className="mb-8" style={{ height: 400 }}>
+        <div className="mb-8 w-full" style={{ height: 400 }}>
           {chartData ? (
             <Bar options={options} data={data} />
           ) : (
-            <p className="text-gray-400 text-center">Geen data beschikbaar voor dit filter.</p>
+            <p className="text-gray-400 text-center">
+              Geen data beschikbaar voor dit filter.
+            </p>
           )}
         </div>
 
@@ -214,7 +326,7 @@ export default function StatistiekenPage() {
             Terug naar dashboard
           </button>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

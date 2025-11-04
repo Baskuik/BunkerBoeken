@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 export default function BookingPage() {
@@ -18,6 +18,8 @@ export default function BookingPage() {
   // Admin state
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   // Editable texts/images
   const [editableText, setEditableText] = useState({
@@ -50,7 +52,6 @@ export default function BookingPage() {
 
   // Load settings from backend
   useEffect(() => {
-    // Opening hours
     fetch(`${API_URL}/openingstijden`, { credentials: "include" })
       .then(res => res.json())
       .then(data => {
@@ -59,7 +60,6 @@ export default function BookingPage() {
       })
       .catch(err => console.error("Kon openingstijden niet laden:", err));
 
-    // Editable texts
     fetch(`${API_URL}/editableText`, { credentials: "include" })
       .then(res => res.json())
       .then(data => {
@@ -70,7 +70,6 @@ export default function BookingPage() {
       })
       .catch(err => console.error("Kon editable texts niet laden:", err));
 
-    // Max personen per datum
     fetch(`${API_URL}/maxpersonen`, { credentials: "include" })
       .then(res => res.json())
       .then(data => {
@@ -81,13 +80,11 @@ export default function BookingPage() {
       })
       .catch(err => console.error("Kon max personen niet laden:", err));
 
-    // Default max personen
     fetch(`${API_URL}/maxpersonen/default`, { credentials: "include" })
       .then(res => res.json())
       .then(data => { if (data.value) setDefaultMaxPersons(data.value); })
       .catch(() => setDefaultMaxPersons(12));
 
-    // Price per date
     fetch(`${API_URL}/pricePerDate`, { credentials: "include" })
       .then(res => res.json())
       .then(data => {
@@ -98,7 +95,6 @@ export default function BookingPage() {
       })
       .catch(err => console.error("Kon prijs per datum niet laden:", err));
 
-    // Default price
     fetch(`${API_URL}/pricePerDate/default`, { credentials: "include" })
       .then(res => res.json())
       .then(data => { if (data.value) setDefaultPrice(data.value); })
@@ -188,25 +184,18 @@ export default function BookingPage() {
   // Admin functies
   const saveChanges = async () => {
     try {
-      // Editable texts
       await fetch(`${API_URL}/editableText`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         credentials: "include", body: JSON.stringify({ value: editableText })
       });
-
-      // Opening hours
       await fetch(`${API_URL}/openingstijden`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         credentials: "include", body: JSON.stringify({ value: openingHours })
       });
-
-      // Max personen per datum
       await fetch(`${API_URL}/maxpersonen`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         credentials: "include", body: JSON.stringify({ value: maxPersonsPerDate })
       });
-
-      // Price per date
       await fetch(`${API_URL}/pricePerDate`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         credentials: "include", body: JSON.stringify({ value: pricePerDate })
@@ -264,6 +253,21 @@ export default function BookingPage() {
   const currentPrice = selectedDate ? (pricePerDate[selectedDate] ?? defaultPrice) : defaultPrice;
   const totalPrice = form.people ? (form.people * currentPrice).toFixed(2) : currentPrice.toFixed(2);
 
+  // Logout functie
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:5000/api/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      // ignore errors
+    } finally {
+      navigate("/adminlogin");
+    }
+  };
+
   return (
     <div className="font-sans min-h-screen bg-fixed" style={{ backgroundImage: "url('/images/BunkerfotoBuiten.jpg')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
       <div style={{ minHeight: "100vh", backgroundColor: "rgba(255,255,255,0.55)" }}>
@@ -278,6 +282,48 @@ export default function BookingPage() {
             <li><Link to="/boeken" className="text-gray-200 hover:text-blue-300">boeken</Link></li>
             <li><a href="#contact" className="text-gray-200 hover:text-blue-300">contact</a></li>
           </ul>
+
+          {/* Admin dropdown */}
+{isAdmin && (
+  <div className="relative" ref={menuRef}>
+    <button
+      onClick={() => setMenuOpen((s) => !s)}
+      aria-haspopup="true"
+      aria-expanded={menuOpen}
+      className="p-2 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+      title="Account menu"
+    >
+      <i className="fa-solid fa-circle-user text-xl" aria-hidden="true"></i>
+      <span className="sr-only">Open account menu</span>
+    </button>
+
+    {menuOpen && (
+      <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+        <button
+          onClick={() => { setMenuOpen(false); navigate("/account"); }}
+          className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
+        >
+          Account
+        </button>
+
+        <button
+          onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
+          className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+        >
+          Terug naar dashboard
+        </button>
+
+        <button
+          onClick={() => { setMenuOpen(false); handleLogout(); }}
+          className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-b-lg"
+        >
+          Uitloggen
+        </button>
+      </div>
+    )}
+  </div>
+)}
+
         </nav>
 
         {/* Admin buttons */}

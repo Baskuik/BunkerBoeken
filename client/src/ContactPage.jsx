@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from "react";
+// ContactPage.jsx
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function ContactPage() {
+  const navigate = useNavigate();
+  const menuRef = useRef(null);
+
   const [content, setContent] = useState({
     heroBg: "https://terschelling-cdn.travelbase.nl/image-transforms/hero/2560x1920/3f2624ba9ffc5ebd40c98284e1379e99.webp",
     heroTitle: "The title!",
@@ -29,6 +34,7 @@ export default function ContactPage() {
   const [saving, setSaving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadingAdmin, setLoadingAdmin] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Ophalen opgeslagen content
   useEffect(() => {
@@ -80,6 +86,18 @@ export default function ContactPage() {
     setSaving(false);
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_URL}/api/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+    } finally {
+      navigate("/adminlogin");
+    }
+  };
+
   return (
     <div className="font-sans text-gray-800 relative">
       {/* Navbar */}
@@ -91,19 +109,56 @@ export default function ContactPage() {
           <li><a href="/boeken">boeken</a></li>
           <li><a href="/contact">contact</a></li>
         </ul>
+
+        {/* Admin dropdown */}
+        {isAdmin && (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-2 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Account menu"
+            >
+              <i className="fa-solid fa-circle-user text-xl"></i>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/account"); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
+                >
+                  Account
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+                >
+                  Terug naar dashboard
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); handleLogout(); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-b-lg"
+                >
+                  Uitloggen
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
-      {/* Admin edit knop */}
+      {/* Admin "Pagina bewerken" knop onder navbar */}
       {!loadingAdmin && isAdmin && !editing && (
-        <button
-          onClick={startEditing}
-          className="absolute right-10 top-[120px] z-20 px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600"
-        >
-          Pagina bewerken
-        </button>
+        <div className="flex justify-end px-10 py-4 bg-white border-b">
+          <button
+            onClick={startEditing}
+            className="px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600"
+          >
+            Pagina bewerken
+          </button>
+        </div>
       )}
 
-      {/* Hero */}
+      {/* Hero Section */}
       <section
         className="relative flex flex-col items-center justify-center text-center px-6 py-32 bg-cover bg-center"
         style={{ backgroundImage: `url('${content.heroBg}')` }}
@@ -149,7 +204,7 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* Contact info */}
+      {/* Contact info & form */}
       <section className="max-w-5xl mx-auto px-6 py-16 grid md:grid-cols-2 gap-12">
         <div className="space-y-4">
           {editing ? (
@@ -157,10 +212,7 @@ export default function ContactPage() {
               type="text"
               value={content.contactInfo.title}
               onChange={(e) =>
-                setContent({
-                  ...content,
-                  contactInfo: { ...content.contactInfo, title: e.target.value },
-                })
+                setContent({ ...content, contactInfo: { ...content.contactInfo, title: e.target.value } })
               }
               className="w-full text-2xl font-semibold border p-1 rounded"
             />
@@ -172,10 +224,7 @@ export default function ContactPage() {
             <textarea
               value={content.contactInfo.description}
               onChange={(e) =>
-                setContent({
-                  ...content,
-                  contactInfo: { ...content.contactInfo, description: e.target.value },
-                })
+                setContent({ ...content, contactInfo: { ...content.contactInfo, description: e.target.value } })
               }
               className="w-full border p-1 rounded"
             />
@@ -190,17 +239,13 @@ export default function ContactPage() {
                   type="text"
                   value={content.contactInfo[field]}
                   onChange={(e) =>
-                    setContent({
-                      ...content,
-                      contactInfo: { ...content.contactInfo, [field]: e.target.value },
-                    })
+                    setContent({ ...content, contactInfo: { ...content.contactInfo, [field]: e.target.value } })
                   }
                   className="w-full border p-1 rounded"
                 />
               ) : (
                 <p>
-                  <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong>{" "}
-                  {content.contactInfo[field]}
+                  <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong> {content.contactInfo[field]}
                 </p>
               )}
             </div>
@@ -219,7 +264,7 @@ export default function ContactPage() {
           </div>
         </div>
 
-        {/* Contact form */}
+        {/* Form */}
         <div className="space-y-4">
           {["name", "email", "message"].map((field) => (
             <div key={field}>
@@ -228,10 +273,7 @@ export default function ContactPage() {
                   type="text"
                   value={content.formLabels[field]}
                   onChange={(e) =>
-                    setContent({
-                      ...content,
-                      formLabels: { ...content.formLabels, [field]: e.target.value },
-                    })
+                    setContent({ ...content, formLabels: { ...content.formLabels, [field]: e.target.value } })
                   }
                   className="w-full border p-1 rounded"
                   placeholder={`Label voor ${field}`}
@@ -256,16 +298,12 @@ export default function ContactPage() {
               )}
             </div>
           ))}
-
           {editing ? (
             <input
               type="text"
               value={content.formLabels.submit}
               onChange={(e) =>
-                setContent({
-                  ...content,
-                  formLabels: { ...content.formLabels, submit: e.target.value },
-                })
+                setContent({ ...content, formLabels: { ...content.formLabels, submit: e.target.value } })
               }
               className="w-full border p-1 rounded mt-1"
             />
@@ -282,7 +320,7 @@ export default function ContactPage() {
 
       {/* Admin buttons tijdens editing */}
       {!loadingAdmin && isAdmin && editing && (
-        <div className="fixed bottom-5 right-5 flex gap-3">
+        <div className="fixed bottom-5 right-5 flex gap-3 z-50">
           <button
             onClick={saveChanges}
             disabled={saving}

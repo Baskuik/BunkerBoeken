@@ -1,15 +1,17 @@
 // HomePage.jsx
-import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function HomePage() {
+  const navigate = useNavigate();
+  const menuRef = useRef(null);
+
   const [content, setContent] = useState({
     title: "The title!",
     subtitle: "Some text describing the site or event.",
-    intro:
-      "Welkom bij onze bijzondere locatie waar verhalen tot leven komen...",
+    intro: "Welkom bij onze bijzondere locatie waar verhalen tot leven komen...",
     sections: [
       {
         img: "https://tse1.mm.bing.net/th/id/OIP.cOuSJr_evsOMEOEiOJQgkwHaDU?rs=1&pid=ImgDetMain&o=7&rm=3",
@@ -29,6 +31,7 @@ export default function HomePage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [loadingAdmin, setLoadingAdmin] = useState(true);
   const [originalContent, setOriginalContent] = useState(content);
 
@@ -39,7 +42,7 @@ export default function HomePage() {
       .then((data) => {
         if (data?.content) {
           setContent(data.content);
-          setOriginalContent(data.content); // bewaar originele content
+          setOriginalContent(data.content);
         }
       })
       .catch((err) => console.error("Fout bij laden content:", err));
@@ -47,11 +50,12 @@ export default function HomePage() {
 
   // 📥 Controleren of gebruiker admin is
   useEffect(() => {
-    fetch(`${API_URL}/api/me`, { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.role === "admin") setIsAdmin(true);
+    fetch(`${API_URL}/api/admin/me`, { credentials: "include" })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
       })
+      .then(() => setIsAdmin(true))
       .catch(() => setIsAdmin(false))
       .finally(() => setLoadingAdmin(false));
   }, []);
@@ -74,7 +78,7 @@ export default function HomePage() {
 
       alert("Wijzigingen opgeslagen!");
       setEditing(false);
-      setOriginalContent(content); // update originele content
+      setOriginalContent(content);
     } catch (err) {
       console.error("Opslaan mislukt:", err);
       alert("Opslaan mislukt: " + err.message);
@@ -85,7 +89,7 @@ export default function HomePage() {
   const startEditing = () => setEditing(true);
 
   const cancelEditing = () => {
-    setContent(originalContent); // terug naar originele content
+    setContent(originalContent);
     setEditing(false);
   };
 
@@ -95,17 +99,64 @@ export default function HomePage() {
     setContent({ ...content, sections: newSections });
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_URL}/api/logout`, { method: "POST", credentials: "include" });
+    } catch (e) {}
+    navigate("/adminlogin");
+  };
+
   return (
     <div className="font-sans text-gray-800 relative">
       {/* Navbar */}
       <nav className="flex justify-between items-center px-10 py-5 bg-white shadow-sm border-b z-30 relative">
         <div className="text-2xl font-bold">Bunker Museum</div>
+
         <ul className="flex space-x-8 text-gray-700 font-medium">
           <li><Link to="/">home</Link></li>
           <li><Link to="/verhaal">verhaal</Link></li>
           <li><Link to="/boeken">boeken</Link></li>
           <li><Link to="/contact">contact</Link></li>
         </ul>
+
+        {/* Admin Dropdown */}
+        {isAdmin && (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((s) => !s)}
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+              className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+              title="Account menu"
+            >
+              <i className="fa-solid fa-circle-user text-xl" aria-hidden="true"></i>
+              <span className="sr-only">Open account menu</span>
+            </button>
+
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-50">
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/account"); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
+                >
+                  Account
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+                >
+                  Terug naar dashboard
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); handleLogout(); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-b-lg"
+                >
+                  Uitloggen
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Admin bewerk knop boven hero */}

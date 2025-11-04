@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from "react";
+// VerhaalPage.jsx
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function VerhaalPage() {
+  const navigate = useNavigate();
+  const menuRef = useRef(null);
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [editableContent, setEditableContent] = useState({
     heroBg:
       "https://terschelling-cdn.travelbase.nl/image-transforms/hero/2560x1920/3f2624ba9ffc5ebd40c98284e1379e99.webp",
@@ -33,40 +39,27 @@ export default function VerhaalPage() {
       }
     ]
   });
-
   const [originalContent, setOriginalContent] = useState(editableContent);
 
   // Check admin
   useEffect(() => {
-    fetch("http://localhost:5000/api/admin/me", {
-      method: "GET",
-      credentials: "include"
-    })
-      .then(res => {
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
+    fetch("http://localhost:5000/api/admin/me", { method: "GET", credentials: "include" })
+      .then(res => { if (!res.ok) throw new Error(); return res.json(); })
       .then(() => setIsAdmin(true))
       .catch(() => setIsAdmin(false));
   }, []);
 
-  // Ophalen content van server voor persistency
+  // Load persisted content
   useEffect(() => {
-    fetch("http://127.0.0.1:5000/api/settings/verhaalPage", {
-      method: "GET",
-      credentials: "include"
-    })
-      .then(res => {
-        if (!res.ok) throw new Error("Kon content niet ophalen");
-        return res.json();
-      })
+    fetch("http://127.0.0.1:5000/api/settings/verhaalPage", { credentials: "include" })
+      .then(res => res.json())
       .then(data => {
         if (data?.value) {
           setEditableContent(data.value);
           setOriginalContent(data.value);
         }
       })
-      .catch(err => console.error(err));
+      .catch(err => console.error("Kon content niet ophalen:", err));
   }, []);
 
   const toggleEditing = () => setIsEditing(true);
@@ -93,48 +86,79 @@ export default function VerhaalPage() {
     setIsEditing(false);
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:5000/api/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" }
+      });
+    } finally {
+      navigate("/adminlogin");
+    }
+  };
+
   return (
     <div className="font-sans text-gray-800">
       {/* Navbar */}
-      <nav className="flex justify-between items-center px-10 py-5 bg-white shadow-sm border-b">
+      <nav className="flex justify-between items-center px-10 py-5 bg-white shadow-sm border-b relative">
         <div className="text-2xl font-bold">Bunker Museum</div>
         <ul className="flex space-x-8 text-gray-700 font-medium">
           <li><a href="/HomePage" className="hover:text-blue-600">home</a></li>
           <li><a href="/VerhaalPage" className="hover:text-blue-600">verhaal</a></li>
-          <li><a href="/ContactPage" className="text-blue-600 font-semibold">contact</a></li>
+          <li><a href="/ContactPage" className="hover:text-blue-600">contact</a></li>
         </ul>
+
+        {/* Admin dropdown */}
+        {isAdmin && (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-2 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Account menu"
+            >
+              <i className="fa-solid fa-circle-user text-xl"></i>
+            </button>
+
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/account"); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
+                >
+                  Account
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+                >
+                  Terug naar dashboard
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); handleLogout(); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-b-lg"
+                >
+                  Uitloggen
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
-      {/* Admin buttons */}
-      {isAdmin && (
-        <div className="flex justify-end max-w-5xl mx-auto px-4 py-4 space-x-2">
-          {!isEditing ? (
-            <button
-              onClick={toggleEditing}
-              className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-            >
-              Pagina bewerken
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={saveChanges}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Wijzigingen opslaan
-              </button>
-              <button
-                onClick={cancelChanges}
-                className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
-              >
-                Annuleren
-              </button>
-            </>
-          )}
+      {/* Admin "Pagina bewerken" knop onder navbar */}
+      {isAdmin && !isEditing && (
+        <div className="flex justify-end px-10 py-4 bg-white border-b">
+          <button
+            onClick={toggleEditing}
+            className="px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600"
+          >
+            Pagina bewerken
+          </button>
         </div>
       )}
 
-      {/* Header section */}
+      {/* Hero Section */}
       <section
         className="relative flex flex-col items-center justify-center text-center px-6 py-32 bg-cover bg-center"
         style={{ backgroundImage: `url('${editableContent.heroBg}')` }}
@@ -178,11 +202,10 @@ export default function VerhaalPage() {
         </div>
       </section>
 
-      {/* Main content */}
+      {/* Main Content */}
       <section className="max-w-5xl mx-auto px-6 py-16">
-        {/* Paragraphs */}
         <div className="mb-16 space-y-6 text-gray-700 leading-relaxed">
-          {editableContent.paragraphs.map((p, i) => (
+          {editableContent.paragraphs.map((p, i) =>
             isEditing ? (
               <textarea
                 key={i}
@@ -198,10 +221,9 @@ export default function VerhaalPage() {
             ) : (
               <p key={i}>{p}</p>
             )
-          ))}
+          )}
         </div>
 
-        {/* Images */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-16">
           {editableContent.images.map((item, i) => (
             <div key={i} className="flex flex-col items-center text-center">
@@ -237,6 +259,24 @@ export default function VerhaalPage() {
           ))}
         </div>
       </section>
+
+      {/* Admin buttons tijdens editing */}
+      {isAdmin && isEditing && (
+        <div className="fixed bottom-5 right-5 flex gap-3 z-50">
+          <button
+            onClick={saveChanges}
+            className="px-4 py-2 bg-green-600 text-white rounded shadow hover:bg-green-700"
+          >
+            Wijzigingen opslaan
+          </button>
+          <button
+            onClick={cancelChanges}
+            className="px-4 py-2 bg-gray-400 text-white rounded shadow hover:bg-gray-500"
+          >
+            Annuleren
+          </button>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-300 py-6 text-center border-t border-gray-700">
