@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import HomePage from "./HomePage";
 import ContactPage from "./ContactPage";
 import VerhaalPage from "./VerhaalPage";
+import InfomatiePage from "./InfomatiePage";
+import BetaalPage from "./BetaalPage";
 import BookingPage from "./BookingPage";
 import BookingConfirmPage from "./BookingConfirmPage";
 import AdminLoginPage from "./AdminLoginPage";
@@ -25,6 +27,8 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/verhaal" element={<VerhaalPage />} />
+        <Route path="/BetaalPage" element={<BetaalPage />} />
+        <Route path="/InfomatiePage" element={<InfomatiePage />} />
         <Route path="/boeken" element={<BookingPage />} />
         <Route path="/booking-confirm/:id" element={<BookingConfirmPage />} />
         <Route path="/adminlogin" element={<AdminLoginPage />} />
