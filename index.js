@@ -12,6 +12,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import settingsRoutes from "./routes/settings.js";
 import bookingsRoutes from "./routes/bookings.js"; // ✅ boekingen
 import contentRoutes from "./routes/contentRoutes.js"; // ✅ nieuw toegevoegd
+import statisticsRoutes from "./routes/statisticsRoutes.js"; // ✅ nieuw toegevoegd voor statistieken
 import { initDB } from "./db.js";
 
 dotenv.config();
@@ -82,6 +83,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/bookings", bookingsRoutes); // ✅ boekingen
 app.use("/api/reservations", bookingsRoutes); // ✅ alias toegevoegd
 app.use("/api/content", contentRoutes); // ✅ contentbeheer (voor bewerkbare pagina’s)
+app.use("/api/statistics", statisticsRoutes); // ✅ statistieken route toegevoegd
 
 // ===== Debug Routes =====
 app.get("/debug/session", (req, res) => {

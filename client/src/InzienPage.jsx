@@ -115,7 +115,7 @@ export default function InzienPage() {
           <div
             role="button"
             tabIndex={0}
-            onClick={() => alert("Statistieken pagina komt hier")}
+            onClick={() => navigate("/statistieken")}  // Navigeren naar de statistiekenpagina
             className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 cursor-pointer hover:shadow-xl transition hover:bg-white/20 text-white"
           >
             <h2 className="text-lg font-semibold mb-2">Statistieken inzien</h2>
