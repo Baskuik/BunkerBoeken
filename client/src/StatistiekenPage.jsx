@@ -120,9 +120,17 @@ export default function StatistiekenPage() {
   const todayISO = formatISO(new Date());
 
   return (
-    <div className="min-h-screen flex items-start justify-center bg-gray-900 p-6 text-white">
-      <div className="w-full max-w-5xl bg-gray-900 border border-white/20 rounded-2xl p-6 shadow-lg">
-        <h1 className="text-3xl font-bold mb-6 text-center">Statistieken Dashboard</h1>
+    <div className="min-h-screen flex flex-col items-center bg-gray-900 p-6 text-white">
+      <div className="w-full max-w-5xl bg-gray-900 border border-white/20 rounded-2xl p-6 shadow-lg flex flex-col gap-6">
+        <h1 className="text-3xl font-bold text-center">Statistieken Dashboard</h1>
+
+        {/* Terug naar inzien knop */}
+        <button
+          onClick={() => navigate("/inzien")}
+          className="px-4 py-3 bg-gray-600 text-white rounded hover:bg-gray-700 w-full md:w-auto transition"
+        >
+          Terug naar inzien
+        </button>
 
         {/* Filters */}
         <div className="flex flex-wrap justify-center gap-6 mb-4">
