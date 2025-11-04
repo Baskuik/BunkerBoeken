@@ -5,11 +5,44 @@ import { initDB } from "../db.js";
 const router = express.Router();
 
 /**
+ * ✅ NIEUW: Haalt ALLE instellingen op (openingstijden, maxpersonen, pricePerDate)
+ * GET /api/settings
+ */
+router.get("/", async (req, res) => {
+  const db = await initDB();
+
+  try {
+    // Alle settings ophalen
+    const [rows] = await db.execute("SELECT `key`, `value` FROM settings");
+
+    // Omzetten naar object
+    const allSettings = {};
+    for (const row of rows) {
+      try {
+        allSettings[row.key] = JSON.parse(row.value);
+      } catch {
+        allSettings[row.key] = row.value;
+      }
+    }
+
+    // Structuur teruggeven zoals frontend verwacht
+    res.json({
+      openingstijden: allSettings.openingstijden || {},
+      maxpersonen: allSettings.maxpersonen || {},
+      pricePerDate: allSettings.pricePerDate || {},
+    });
+  } catch (err) {
+    console.error("❌ Fout bij ophalen van ALLE settings:", err);
+    res.status(500).json({ error: "Fout bij ophalen instellingen" });
+  }
+});
+
+/**
  * GET /api/settings/:key
- * Haalt een setting op uit de database.
+ * Haalt één specifieke instelling op uit de database.
  */
 router.get("/:key", async (req, res) => {
-  const db = await initDB(); // ✅ verbinding ophalen
+  const db = await initDB();
   const { key } = req.params;
 
   try {
@@ -24,7 +57,6 @@ router.get("/:key", async (req, res) => {
 
     let value = rows[0].value;
 
-    // Probeer JSON te parsen
     try {
       value = JSON.parse(value);
     } catch {
@@ -40,10 +72,10 @@ router.get("/:key", async (req, res) => {
 
 /**
  * PUT /api/settings/:key
- * Maakt of update een setting in de database.
+ * Maakt of update een instelling in de database.
  */
 router.put("/:key", async (req, res) => {
-  const db = await initDB(); // ✅ verbinding ophalen
+  const db = await initDB();
   const { key } = req.params;
   const { value } = req.body;
 

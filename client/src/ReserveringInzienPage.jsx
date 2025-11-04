@@ -10,11 +10,11 @@ export default function ReserveringInzienPage() {
   const [error, setError] = useState("");
 
   // Sorting & Pagination
-  const [sortOption, setSortOption] = useState("alphabetical"); // alphabetical | price | datetime | people
+  const [sortOption, setSortOption] = useState("alphabetical");
   const [limit, setLimit] = useState(25);
 
   // Modal for add/edit
-  const [modalType, setModalType] = useState(""); // "" | "add" | "edit"
+  const [modalType, setModalType] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -65,19 +65,14 @@ export default function ReserveringInzienPage() {
   // Fetch settings
   const fetchSettings = async () => {
     try {
-      const [oh, ppd, mpd, defPriceRes, defMaxRes] = await Promise.all([
-        fetch(`${API_SETTINGS}/openingstijden`, { credentials: "include" }).then(r => r.json()),
-        fetch(`${API_SETTINGS}/pricePerDate`, { credentials: "include" }).then(r => r.json()),
-        fetch(`${API_SETTINGS}/maxpersonen`, { credentials: "include" }).then(r => r.json()),
-        fetch(`${API_SETTINGS}/pricePerDate/default`, { credentials: "include" }).then(r => r.json()),
-        fetch(`${API_SETTINGS}/maxpersonen/default`, { credentials: "include" }).then(r => r.json()),
-      ]);
-
-      setOpeningHours(oh.value || {});
-      setPricePerDate(ppd.value || {});
-      setMaxPersonsPerDate(mpd.value || {});
-      setDefaultPrice(defPriceRes.value || 10);
-      setDefaultMaxPersons(defMaxRes.value || 12);
+      const res = await fetch(API_SETTINGS, { credentials: "include" });
+      if (!res.ok) throw new Error("Kon instellingen niet ophalen");
+      const data = await res.json();
+      setOpeningHours(data.openingstijden || {});
+      setPricePerDate(data.pricePerDate || {});
+      setMaxPersonsPerDate(data.maxpersonen || {});
+      setDefaultPrice(data.pricePerDate?.default ?? 10);
+      setDefaultMaxPersons(data.maxpersonen?.default ?? 12);
     } catch (err) {
       console.error("Kon instellingen niet laden", err);
     }
@@ -88,10 +83,8 @@ export default function ReserveringInzienPage() {
     fetchSettings();
   }, []);
 
-  // Helper: combine date+time
+  // Helpers
   const parseDateTime = (dateStr, timeStr) => new Date(`${dateStr}T${timeStr}:00`);
-
-  // Calendar helpers
   const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
   const firstWeekday = (y, m) => new Date(y, m, 1).getDay();
   const buildCalendarGrid = (y, m) => {
@@ -106,22 +99,39 @@ export default function ReserveringInzienPage() {
     date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` : "";
   const todayISO = formatISO(new Date());
 
-  // Datum-specifieke instellingen helper
+  // Datum-specifieke instellingen (correcte tijden en max personen)
   const getDatumSpecifiekeInstellingen = (date) => {
     const prijsPerPerson = pricePerDate[date] ?? defaultPrice;
     const maxPersons = maxPersonsPerDate[date] ?? defaultMaxPersons;
-    const slots = ((openingHours[date]?.extra || standardSlots)
-      .filter((t) => !(openingHours[date]?.removed || []).includes(t))
-      .sort());
+
+    // Begin altijd met standaardtijden 10:00 t/m 17:00
+    let slots = [...standardSlots];
+
+    // Voeg eventuele admin extra tijden toe
+    const dateSetting = openingHours[date];
+    if (dateSetting && typeof dateSetting === "object" && Array.isArray(dateSetting.extra)) {
+      dateSetting.extra.forEach(t => {
+        if (!slots.includes(t)) slots.push(t);
+      });
+    }
+
+    // Sorteer de tijden correct
+    slots.sort((a, b) => {
+      const [ah, am] = a.split(":").map(Number);
+      const [bh, bm] = b.split(":").map(Number);
+      return ah - bh || am - bm;
+    });
+
     return { prijsPerPerson, maxPersons, slots };
   };
 
   // Select date
-  const onSelectDate = (date) => {
+  const onSelectDate = async (date) => {
     const iso = formatISO(date);
+    await fetchSettings();
     const { prijsPerPerson, maxPersons } = getDatumSpecifiekeInstellingen(iso);
     setSelectedDate(iso);
-    setFormData(f => ({
+    setFormData((f) => ({
       ...f,
       date: iso,
       time: "",
@@ -131,10 +141,8 @@ export default function ReserveringInzienPage() {
     }));
   };
 
-  // Select time
-  const onSelectTime = (time) => setFormData(f => ({ ...f, time }));
+  const onSelectTime = (time) => setFormData((f) => ({ ...f, time }));
 
-  // Add / Edit
   const handleAddOrUpdate = async () => {
     const { id, name, email, date, time, people, prijsPerPerson } = formData;
     if (!name || !email || !date || !time || !people) return alert("Vul alle velden in.");
@@ -168,8 +176,8 @@ export default function ReserveringInzienPage() {
     }
   };
 
-  // Edit reservation
-  const onEditReservation = (reservation) => {
+  const onEditReservation = async (reservation) => {
+    await fetchSettings();
     const { prijsPerPerson, maxPersons, slots } = getDatumSpecifiekeInstellingen(reservation.date);
     const time = slots.includes(reservation.time) ? reservation.time : "";
     setSelectedDate(reservation.date);
@@ -184,7 +192,6 @@ export default function ReserveringInzienPage() {
 
   const currentTimeSlots = selectedDate ? getDatumSpecifiekeInstellingen(selectedDate).slots : [];
 
-  // Sorting & Pagination
   const sortedReservations = [...reservations]
     .sort((a, b) => {
       if (sortOption === "alphabetical") return a.name.localeCompare(b.name);
@@ -199,7 +206,6 @@ export default function ReserveringInzienPage() {
     <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center">
       <h1 className="text-3xl font-bold mb-6">Reserveringen Inzien</h1>
 
-      {/* Terug naar inzien knop */}
       <button
         onClick={() => navigate("/inzien")}
         className="px-4 py-3 bg-gray-600 text-white rounded hover:bg-gray-700 transition w-full mb-4"
@@ -208,13 +214,13 @@ export default function ReserveringInzienPage() {
       </button>
 
       <div className="flex gap-3 mb-4">
-        <select value={sortOption} onChange={e => setSortOption(e.target.value)} className="px-3 py-2 rounded text-gray-800">
+        <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="px-3 py-2 rounded text-gray-800">
           <option value="alphabetical">Alfabetisch (Naam)</option>
           <option value="price">Prijs (hoog → laag)</option>
           <option value="datetime">Datum/Tijd</option>
           <option value="people">Aantal personen</option>
         </select>
-        <select value={limit} onChange={e => setLimit(Number(e.target.value))} className="px-3 py-2 rounded text-gray-800">
+        <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="px-3 py-2 rounded text-gray-800">
           <option value={25}>Eerste 25</option>
           <option value={50}>Eerste 50</option>
           <option value={100}>Eerste 100</option>
@@ -240,7 +246,7 @@ export default function ReserveringInzienPage() {
               </tr>
             </thead>
             <tbody>
-              {sortedReservations.map(r => (
+              {sortedReservations.map((r) => (
                 <tr key={r.id} className="border-b border-white/20 hover:bg-white/10">
                   <td>{r.name}</td>
                   <td>{r.email}</td>
@@ -266,8 +272,8 @@ export default function ReserveringInzienPage() {
             <h2 className="text-xl font-bold mb-4">{modalType === "add" ? "Nieuwe boeking" : "Bewerk boeking"}</h2>
 
             <div className="flex flex-col gap-3">
-              <input type="text" placeholder="Naam" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="px-3 py-2 rounded text-gray-800"/>
-              <input type="email" placeholder="E-mail" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="px-3 py-2 rounded text-gray-800"/>
+              <input type="text" placeholder="Naam" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="px-3 py-2 rounded text-gray-800"/>
+              <input type="email" placeholder="E-mail" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="px-3 py-2 rounded text-gray-800"/>
 
               {/* Kalender */}
               <div className="p-2 border rounded bg-gray-400">
