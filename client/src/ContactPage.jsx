@@ -99,24 +99,16 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="font-sans text-gray-800">
-      
-<nav className="fixed top-0 left-0 w-full z-50 flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-500 bg-opacity-95 backdrop-blur-md shadow-md space-y-2 sm:space-y-0">
-  <div className="text-xl sm:text-2xl font-bold text-white">Bunker rondleidingen</div>
-  <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
-    <li>
-      <a href="/" className="hover:text-blue-300">home</a>
-    </li>
-    <li>
-      <a href="/Verhaal" className="hover:text-blue-300">verhaal</a>
-    </li>
-    <li>
-      <a href="/boeken" className="hover:text-blue-300">boeken</a>
-    </li>
-    <li>
-      <a href="/Contact" className="hover:text-blue-300 font-semibold">contact</a>
-    </li>
-  </ul>
+    <div className="font-sans text-gray-800 relative">
+      {/* Navbar */}
+      <nav className="fixed top-0 left-0 w-full z-50 flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-500 bg-opacity-95 backdrop-blur-md shadow-md space-y-2 sm:space-y-0">
+        <div className="text-xl sm:text-2xl font-bold text-white">Bunker rondleidingen</div>
+        <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
+          <li><a href="/" className="hover:text-blue-300">home</a></li>
+          <li><a href="/Verhaal" className="hover:text-blue-300">verhaal</a></li>
+          <li><a href="/boeken" className="hover:text-blue-300">boeken</a></li>
+          <li><a href="/Contact" className="hover:text-blue-300 font-semibold">contact</a></li>
+        </ul>
 
         {/* Admin dropdown */}
         {isAdmin && (
@@ -154,16 +146,14 @@ export default function ContactPage() {
         )}
       </nav>
 
-      {/* Admin "Pagina bewerken" knop onder navbar */}
+      {/* Admin "Pagina bewerken" knop zoals origineel */}
       {!loadingAdmin && isAdmin && !editing && (
-        <div className="flex justify-end px-10 py-4 bg-white border-b">
-          <button
-            onClick={startEditing}
-            className="px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600"
-          >
-            Pagina bewerken
-          </button>
-        </div>
+        <button
+          onClick={startEditing}
+          className="absolute right-10 top-[120px] z-20 px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600"
+        >
+          Pagina bewerken
+        </button>
       )}
 
       {/* Hero Section */}
