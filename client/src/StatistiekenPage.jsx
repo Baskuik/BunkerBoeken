@@ -316,16 +316,6 @@ export default function StatistiekenPage() {
             </p>
           )}
         </div>
-
-        {/* Terug naar dashboard */}
-        <div className="flex justify-center">
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="px-6 py-3 bg-blue-600 text-white font-medium rounded hover:bg-blue-700"
-          >
-            Terug naar dashboard
-          </button>
-        </div>
       </main>
     </div>
   );
