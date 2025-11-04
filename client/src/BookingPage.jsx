@@ -167,7 +167,7 @@ export default function BookingPage() {
     while (d.length % 7 !== 0) d.push(null);
     return d;
   };
-  const formatISO = date => date ? `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}` : "";
+  const formatISO = date => date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` : "";
   const onSelectDate = date => {
     const iso = formatISO(date);
     setSelectedDate(iso);
@@ -176,13 +176,13 @@ export default function BookingPage() {
   const onSelectTime = time => setForm({ ...form, time });
 
   const days = buildCalendarGrid(calendarMonth.getFullYear(), calendarMonth.getMonth());
-  const monthName = calendarMonth.toLocaleString("default",{month:"long"});
+  const monthName = calendarMonth.toLocaleString("default", { month: "long" });
   const yearNum = calendarMonth.getFullYear();
-  const weekdayLabels = ["Su","Mo","Tue","We","Th","Fri","Sat"];
+  const weekdayLabels = ["Su", "Mo", "Tue", "We", "Th", "Fri", "Sat"];
   const todayISO = formatISO(new Date());
 
   const currentTimeSlots = selectedDate
-    ? standardSlots.filter(t => !(openingHours[selectedDate]?.removed||[]).includes(t)).concat(openingHours[selectedDate]?.extra||[]).sort()
+    ? standardSlots.filter(t => !(openingHours[selectedDate]?.removed || []).includes(t)).concat(openingHours[selectedDate]?.extra || []).sort()
     : [];
 
   // Admin functies
@@ -288,45 +288,45 @@ export default function BookingPage() {
           </ul>
 
           {/* Admin dropdown */}
-{isAdmin && (
-  <div className="relative" ref={menuRef}>
-    <button
-      onClick={() => setMenuOpen((s) => !s)}
-      aria-haspopup="true"
-      aria-expanded={menuOpen}
-      className="p-2 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-      title="Account menu"
-    >
-      <i className="fa-solid fa-circle-user text-xl" aria-hidden="true"></i>
-      <span className="sr-only">Open account menu</span>
-    </button>
+          {isAdmin && (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen((s) => !s)}
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                className="p-2 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                title="Account menu"
+              >
+                <i className="fa-solid fa-circle-user text-xl" aria-hidden="true"></i>
+                <span className="sr-only">Open account menu</span>
+              </button>
 
-    {menuOpen && (
-      <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-        <button
-          onClick={() => { setMenuOpen(false); navigate("/account"); }}
-          className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
-        >
-          Account
-        </button>
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <button
+                    onClick={() => { setMenuOpen(false); navigate("/account"); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
+                  >
+                    Account
+                  </button>
 
-        <button
-          onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
-          className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
-        >
-          Terug naar dashboard
-        </button>
+                  <button
+                    onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+                  >
+                    Terug naar dashboard
+                  </button>
 
-        <button
-          onClick={() => { setMenuOpen(false); handleLogout(); }}
-          className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-b-lg"
-        >
-          Uitloggen
-        </button>
-      </div>
-    )}
-  </div>
-)}
+                  <button
+                    onClick={() => { setMenuOpen(false); handleLogout(); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-b-lg"
+                  >
+                    Uitloggen
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
         </nav>
 
@@ -347,8 +347,8 @@ export default function BookingPage() {
         {/* Form + Calendar */}
         <div className="max-w-3xl mx-auto px-4 py-12">
           <h2 className="text-2xl font-bold mb-4"
-              contentEditable={isEditing} suppressContentEditableWarning
-              onInput={(e) => setEditableText({ ...editableText, title: e.currentTarget.textContent })}>
+            contentEditable={isEditing} suppressContentEditableWarning
+            onInput={(e) => setEditableText({ ...editableText, title: e.currentTarget.textContent })}>
             {editableText.title}
           </h2>
 
@@ -356,8 +356,8 @@ export default function BookingPage() {
             {/* Naam */}
             <div>
               <label className="block text-sm font-medium mb-1"
-                     contentEditable={isEditing} suppressContentEditableWarning
-                     onInput={(e) => setEditableText({ ...editableText, nameLabel: e.currentTarget.textContent })}>
+                contentEditable={isEditing} suppressContentEditableWarning
+                onInput={(e) => setEditableText({ ...editableText, nameLabel: e.currentTarget.textContent })}>
                 {editableText.nameLabel}
               </label>
               <input name="name" value={form.name} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
@@ -367,8 +367,8 @@ export default function BookingPage() {
             {/* E-mail */}
             <div>
               <label className="block text-sm font-medium mb-1"
-                     contentEditable={isEditing} suppressContentEditableWarning
-                     onInput={(e) => setEditableText({ ...editableText, emailLabel: e.currentTarget.textContent })}>
+                contentEditable={isEditing} suppressContentEditableWarning
+                onInput={(e) => setEditableText({ ...editableText, emailLabel: e.currentTarget.textContent })}>
                 {editableText.emailLabel}
               </label>
               <input
@@ -395,28 +395,34 @@ export default function BookingPage() {
               <div className="grid grid-cols-7 gap-1 text-sm">
                 {days.map((day, idx) => {
                   const isSelected = day && formatISO(day) === selectedDate;
-                  const isPast = day && isDayPast(day);
-                  const isFull = day && isDateFullyBooked(day);
+                  const isPast = day && formatISO(day) < todayISO;
                   return (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => day && !isPast && onSelectDate(day)}
                       disabled={!day || isPast}
-                      className={`w-full h-10 flex items-center justify-center rounded ${day ? (isSelected ? "bg-blue-600 text-white" : isPast ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "text-gray-100 hover:bg-gray-500") : ""}`}
+                      className={`w-full h-10 flex items-center justify-center rounded ${day
+                          ? isSelected
+                            ? "bg-blue-600 text-white"
+                            : isPast
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "text-gray-100 hover:bg-gray-500"
+                          : ""
+                        }`}
                     >
                       {day ? day.getDate() : ""}
                     </button>
                   );
-                  );
                 })}
               </div>
+
             </div>
 
             {/* Tijden info */}
             <label className="block text-sm font-medium mb-2 text-center"
-                   contentEditable={isEditing} suppressContentEditableWarning
-                   onInput={(e) => setEditableText({ ...editableText, timesInfo: e.currentTarget.textContent })}>
+              contentEditable={isEditing} suppressContentEditableWarning
+              onInput={(e) => setEditableText({ ...editableText, timesInfo: e.currentTarget.textContent })}>
               {editableText.timesInfo}
             </label>
 
@@ -427,7 +433,7 @@ export default function BookingPage() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => { if(isAdmin && isEditing) removeTimeSlot(t); else onSelectTime(t); }}
+                    onClick={() => { if (isAdmin && isEditing) removeTimeSlot(t); else onSelectTime(t); }}
                     className={`px-2 py-2 rounded border text-sm ${form.time === t ? "bg-blue-600 text-white" : "hover:bg-blue-50"}`}
                     title={isAdmin && isEditing ? "Klik om te verwijderen" : ""}
                   >
