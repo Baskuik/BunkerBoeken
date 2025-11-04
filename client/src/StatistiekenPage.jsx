@@ -84,7 +84,7 @@ export default function StatistiekenPage() {
 
     if (timeframe === "week") {
       const { weekRange } = chartData;
-      if (!weekRange) return "Week"; // fallback
+      if (!weekRange) return "Week"; 
       return `Week van ${weekRange.start} t/m ${weekRange.end}`;
     }
     if (timeframe === "maand") {
@@ -97,10 +97,7 @@ export default function StatistiekenPage() {
 
   // Kalender functies
   const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
-  const firstWeekday = (y, m) => {
-    const day = new Date(y, m, 1).getDay();
-    return (day + 6) % 7; // maandag = 0
-  };
+  const firstWeekday = (y, m) => (new Date(y, m, 1).getDay() + 6) % 7; // maandag = 0
   const buildCalendarGrid = (y, m) => {
     const d = [];
     const l = firstWeekday(y, m);
@@ -123,8 +120,8 @@ export default function StatistiekenPage() {
   const todayISO = formatISO(new Date());
 
   return (
-    <div className="min-h-screen flex items-start justify-center bg-gray-100 p-6">
-      <div className="w-full max-w-5xl bg-white border border-gray-200 rounded-lg p-6 shadow-lg">
+    <div className="min-h-screen flex items-start justify-center bg-gray-900 p-6 text-white">
+      <div className="w-full max-w-5xl bg-gray-900 border border-white/20 rounded-2xl p-6 shadow-lg">
         <h1 className="text-3xl font-bold mb-6 text-center">Statistieken Dashboard</h1>
 
         {/* Filters */}
@@ -134,7 +131,7 @@ export default function StatistiekenPage() {
             <select
               value={timeframe}
               onChange={(e) => setTimeframe(e.target.value)}
-              className="border rounded px-3 py-1"
+              className="border rounded px-3 py-1 text-gray-800"
             >
               <option value="week">Week</option>
               <option value="maand">Maand</option>
@@ -147,7 +144,7 @@ export default function StatistiekenPage() {
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="border rounded px-3 py-1"
+              className="border rounded px-3 py-1 text-gray-800"
             >
               <option value="geld">Geld</option>
               <option value="tickets">Tickets</option>
@@ -156,17 +153,17 @@ export default function StatistiekenPage() {
         </div>
 
         {/* Header info met uitklapbare kalender */}
-        <div className="text-center mb-4 font-medium text-gray-700 text-lg cursor-pointer select-none" onClick={() => setShowCalendar(!showCalendar)}>
+        <div className="text-center mb-4 font-medium text-lg cursor-pointer select-none" onClick={() => setShowCalendar(!showCalendar)}>
           {renderHeaderInfo()} {showCalendar ? "▲" : "▼"}
         </div>
 
         {/* Kalender */}
         {showCalendar && (
-          <div className="border border-gray-200 rounded-lg p-4 mb-6 max-w-xs mx-auto bg-gray-50">
+          <div className="border border-white/20 rounded-2xl p-4 mb-6 max-w-xs mx-auto bg-white/10 backdrop-blur-md">
             <div className="flex justify-between items-center mb-2">
-              <button type="button" onClick={() => setCalendarDate(calendarDate.subtract(1, "month"))} className="px-2 py-1 rounded hover:bg-gray-200">◀</button>
+              <button type="button" onClick={() => setCalendarDate(calendarDate.subtract(1, "month"))} className="px-2 py-1 rounded hover:bg-white/20">◀</button>
               <div className="font-medium">{monthName} {yearNum}</div>
-              <button type="button" onClick={() => setCalendarDate(calendarDate.add(1, "month"))} className="px-2 py-1 rounded hover:bg-gray-200">▶</button>
+              <button type="button" onClick={() => setCalendarDate(calendarDate.add(1, "month"))} className="px-2 py-1 rounded hover:bg-white/20">▶</button>
             </div>
             <div className="grid grid-cols-7 gap-1 text-xs text-center mb-2">
               {weekdayLabels.map(d => <div key={d} className="font-semibold">{d}</div>)}
@@ -196,7 +193,7 @@ export default function StatistiekenPage() {
           {chartData ? (
             <Bar options={options} data={data} />
           ) : (
-            <p className="text-gray-500 text-center">Geen data beschikbaar voor dit filter.</p>
+            <p className="text-gray-400 text-center">Geen data beschikbaar voor dit filter.</p>
           )}
         </div>
 
