@@ -1,6 +1,6 @@
 // VerhaalPage.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function VerhaalPage() {
   const navigate = useNavigate();
@@ -9,6 +9,7 @@ export default function VerhaalPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
   const [editableContent, setEditableContent] = useState({
     heroBg:
       "https://terschelling-cdn.travelbase.nl/image-transforms/hero/2560x1920/3f2624ba9ffc5ebd40c98284e1379e99.webp",
@@ -16,30 +17,19 @@ export default function VerhaalPage() {
     headerText: "Some text describing the site or event.",
     buttonText: "Button",
     paragraphs: [
-      "In het hart van onze organisatie schuilt een verhaal dat verder gaat dan boeken en woorden. Het begon allemaal met een kleine groep gepassioneerde mensen die geloofden in de kracht van verhalen om mensen te verbinden, te inspireren en te veranderen.",
-      "Door de jaren heen groeide dit initiatief uit tot een plek waar cultuur, creativiteit en geschiedenis samenkomen. Bezoekers worden uitgenodigd om niet alleen te lezen, maar te beleven — elke kamer, elk boek, elk detail vertelt een stukje van het grotere geheel.",
-      "We nodigen je uit om zelf te ontdekken hoe onze collectie tot leven komt. Neem de tijd om rond te kijken, stil te staan bij de woorden, en de verhalen een eigen betekenis te geven."
+      "In het hart van onze organisatie schuilt een verhaal dat verder gaat dan boeken en woorden...",
+      "Door de jaren heen groeide dit initiatief uit tot een plek waar cultuur, creativiteit en geschiedenis samenkomen.",
+      "We nodigen je uit om zelf te ontdekken hoe onze collectie tot leven komt."
     ],
     images: [
-      {
-        src: "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=800&q=80",
-        caption: "De eerste editie"
-      },
-      {
-        src: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=800&q=80",
-        caption: "Een kijkje achter de schermen"
-      },
-      {
-        src: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80",
-        caption: "De makers aan het werk"
-      },
-      {
-        src: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80",
-        caption: "Het verhaal leeft voort"
-      }
+      { src: "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=800&q=80", caption: "De eerste editie" },
+      { src: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=800&q=80", caption: "Een kijkje achter de schermen" },
+      { src: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80", caption: "De makers aan het werk" },
+      { src: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80", caption: "Het verhaal leeft voort" }
     ]
   });
-  const [originalContent, setOriginalContent] = useState(editableContent);
+
+  const [draftContent, setDraftContent] = useState(editableContent);
 
   // Check admin
   useEffect(() => {
@@ -56,13 +46,21 @@ export default function VerhaalPage() {
       .then(data => {
         if (data?.value) {
           setEditableContent(data.value);
-          setOriginalContent(data.value);
+          setDraftContent(data.value);
         }
       })
       .catch(err => console.error("Kon content niet ophalen:", err));
   }, []);
 
-  const toggleEditing = () => setIsEditing(true);
+  const startEditing = () => {
+    const draftCopy = {
+      ...editableContent,
+      paragraphs: [...editableContent.paragraphs],
+      images: editableContent.images.map(img => ({ ...img }))
+    };
+    setDraftContent(draftCopy);
+    setIsEditing(true);
+  };
 
   const saveChanges = async () => {
     try {
@@ -70,9 +68,9 @@ export default function VerhaalPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ value: editableContent })
+        body: JSON.stringify({ value: draftContent })
       });
-      setOriginalContent(editableContent);
+      setEditableContent(draftContent);
       alert("Wijzigingen opgeslagen!");
       setIsEditing(false);
     } catch (err) {
@@ -82,7 +80,7 @@ export default function VerhaalPage() {
   };
 
   const cancelChanges = () => {
-    setEditableContent(originalContent);
+    setDraftContent(editableContent);
     setIsEditing(false);
   };
 
@@ -90,38 +88,44 @@ export default function VerhaalPage() {
     try {
       await fetch("http://localhost:5000/api/logout", {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" }
+        credentials: "include"
       });
     } finally {
       navigate("/adminlogin");
     }
   };
 
+  const contentToShow = isEditing ? draftContent : editableContent;
+
   return (
     <div className="font-sans text-gray-800">
       {/* Navbar */}
-      <nav className="flex justify-between items-center px-10 py-5 bg-white shadow-sm border-b relative">
-        <div className="text-2xl font-bold">Bunker Museum</div>
-        <ul className="flex space-x-8 text-gray-700 font-medium">
-          <li><a href="/HomePage" className="hover:text-blue-600">home</a></li>
-          <li><a href="/VerhaalPage" className="hover:text-blue-600">verhaal</a></li>
-          <li><a href="/ContactPage" className="hover:text-blue-600">contact</a></li>
+      <nav className="fixed top-0 left-0 w-full z-50 flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-500 bg-opacity-95 backdrop-blur-md shadow-md space-y-2 sm:space-y-0">
+        <div className="text-xl sm:text-2xl font-bold text-white">Bunker Museum</div>
+
+        <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
+          <li><Link to="/" className="hover:text-blue-300">home</Link></li>
+          <li><Link to="/verhaal" className="hover:text-blue-300 font-semibold">verhaal</Link></li>
+          <li><Link to="/boeken" className="hover:text-blue-300">boeken</Link></li>
+          <li><Link to="/contact" className="hover:text-blue-300">contact</Link></li>
         </ul>
 
-        {/* Admin dropdown */}
+        {/* Admin Dropdown */}
         {isAdmin && (
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="p-2 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+              className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
               title="Account menu"
             >
-              <i className="fa-solid fa-circle-user text-xl"></i>
+              <i className="fa-solid fa-circle-user text-xl" aria-hidden="true"></i>
+              <span className="sr-only">Open account menu</span>
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+              <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-50">
                 <button
                   onClick={() => { setMenuOpen(false); navigate("/account"); }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
@@ -146,57 +150,54 @@ export default function VerhaalPage() {
         )}
       </nav>
 
-      {/* Admin "Pagina bewerken" knop onder navbar */}
-      {isAdmin && !isEditing && (
-        <div className="flex justify-end px-10 py-4 bg-white border-b">
-          <button
-            onClick={toggleEditing}
-            className="px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600"
-          >
-            Pagina bewerken
-          </button>
-        </div>
-      )}
-
       {/* Hero Section */}
       <section
         className="relative flex flex-col items-center justify-center text-center px-6 py-32 bg-cover bg-center"
-        style={{ backgroundImage: `url('${editableContent.heroBg}')` }}
+        style={{ backgroundImage: `url('${contentToShow.heroBg}')` }}
       >
         <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+
+        {/* Pagina bewerken knop bovenop hero */}
+        {isAdmin && !isEditing && (
+          <button
+            onClick={startEditing}
+            className="absolute right-10 top-[80px] z-20 px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600"
+          >
+            Pagina bewerken
+          </button>
+        )}
+
         <div className="relative z-10 text-white max-w-2xl">
-          {isEditing && (
-            <input
-              type="text"
-              value={editableContent.heroBg}
-              onChange={e => setEditableContent({ ...editableContent, heroBg: e.target.value })}
-              placeholder="Hero achtergrond URL"
-              className="w-full mb-4 p-1 text-black rounded border"
-            />
-          )}
           {isEditing ? (
             <>
+              <input
+                type="text"
+                value={contentToShow.heroBg}
+                onChange={e => setDraftContent({ ...draftContent, heroBg: e.target.value })}
+                placeholder="Hero achtergrond URL"
+                className="w-full mb-4 p-1 text-black rounded border"
+              />
               <textarea
-                value={editableContent.headerTitle}
-                onChange={e => setEditableContent({ ...editableContent, headerTitle: e.target.value })}
+                value={contentToShow.headerTitle}
+                onChange={e => setDraftContent({ ...draftContent, headerTitle: e.target.value })}
                 className="w-full mb-2 text-4xl font-bold p-2 rounded text-black"
               />
               <textarea
-                value={editableContent.headerText}
-                onChange={e => setEditableContent({ ...editableContent, headerText: e.target.value })}
+                value={contentToShow.headerText}
+                onChange={e => setDraftContent({ ...draftContent, headerText: e.target.value })}
                 className="w-full mb-4 p-2 rounded text-black"
               />
               <textarea
-                value={editableContent.buttonText}
-                onChange={e => setEditableContent({ ...editableContent, buttonText: e.target.value })}
+                value={contentToShow.buttonText}
+                onChange={e => setDraftContent({ ...draftContent, buttonText: e.target.value })}
                 className="w-full mb-2 p-2 rounded text-black"
               />
             </>
           ) : (
             <>
-              <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">{editableContent.headerTitle}</h1>
-              <p className="text-lg mb-6 drop-shadow-md">{editableContent.headerText}</p>
-              <button className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">{editableContent.buttonText}</button>
+              <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">{contentToShow.headerTitle}</h1>
+              <p className="text-lg mb-6 drop-shadow-md">{contentToShow.headerText}</p>
+              <button className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">{contentToShow.buttonText}</button>
             </>
           )}
         </div>
@@ -205,15 +206,15 @@ export default function VerhaalPage() {
       {/* Main Content */}
       <section className="max-w-5xl mx-auto px-6 py-16">
         <div className="mb-16 space-y-6 text-gray-700 leading-relaxed">
-          {editableContent.paragraphs.map((p, i) =>
+          {contentToShow.paragraphs.map((p, i) =>
             isEditing ? (
               <textarea
                 key={i}
                 value={p}
                 onChange={e => {
-                  const newParagraphs = [...editableContent.paragraphs];
+                  const newParagraphs = [...draftContent.paragraphs];
                   newParagraphs[i] = e.target.value;
-                  setEditableContent({ ...editableContent, paragraphs: newParagraphs });
+                  setDraftContent({ ...draftContent, paragraphs: newParagraphs });
                 }}
                 className="w-full p-2 border rounded mb-2 text-black"
                 rows={3}
@@ -225,16 +226,16 @@ export default function VerhaalPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-16">
-          {editableContent.images.map((item, i) => (
+          {contentToShow.images.map((item, i) => (
             <div key={i} className="flex flex-col items-center text-center">
               {isEditing && (
                 <input
                   type="text"
                   value={item.src}
                   onChange={e => {
-                    const newImages = [...editableContent.images];
+                    const newImages = [...draftContent.images];
                     newImages[i].src = e.target.value;
-                    setEditableContent({ ...editableContent, images: newImages });
+                    setDraftContent({ ...draftContent, images: newImages });
                   }}
                   className="w-full border p-1 rounded mb-2"
                   placeholder="Afbeelding URL"
@@ -246,9 +247,9 @@ export default function VerhaalPage() {
                   type="text"
                   value={item.caption}
                   onChange={e => {
-                    const newImages = [...editableContent.images];
+                    const newImages = [...draftContent.images];
                     newImages[i].caption = e.target.value;
-                    setEditableContent({ ...editableContent, images: newImages });
+                    setDraftContent({ ...draftContent, images: newImages });
                   }}
                   className="w-full border p-1 rounded mb-2 text-center"
                 />

@@ -33,7 +33,7 @@ export default function HomePage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loadingAdmin, setLoadingAdmin] = useState(true);
-  const [originalContent, setOriginalContent] = useState(content);
+  const [originalContent, setOriginalContent] = useState(JSON.parse(JSON.stringify(content)));
 
   // 📥 Ophalen opgeslagen content
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function HomePage() {
       .then((data) => {
         if (data?.content) {
           setContent(data.content);
-          setOriginalContent(data.content);
+          setOriginalContent(JSON.parse(JSON.stringify(data.content)));
         }
       })
       .catch((err) => console.error("Fout bij laden content:", err));
@@ -61,7 +61,7 @@ export default function HomePage() {
   }, []);
 
   // 📤 Opslaan wijzigingen
-  async function saveChanges() {
+  const saveChanges = async () => {
     setSaving(true);
     try {
       const res = await fetch(`${API_URL}/api/content/home`, {
@@ -78,18 +78,18 @@ export default function HomePage() {
 
       alert("Wijzigingen opgeslagen!");
       setEditing(false);
-      setOriginalContent(content);
+      setOriginalContent(JSON.parse(JSON.stringify(content))); // deep copy
     } catch (err) {
       console.error("Opslaan mislukt:", err);
       alert("Opslaan mislukt: " + err.message);
     }
     setSaving(false);
-  }
+  };
 
   const startEditing = () => setEditing(true);
 
   const cancelEditing = () => {
-    setContent(originalContent);
+    setContent(JSON.parse(JSON.stringify(originalContent))); // deep copy terugzetten
     setEditing(false);
   };
 
@@ -108,25 +108,55 @@ export default function HomePage() {
 
   return (
     <div className="font-sans text-gray-800">
+      {/* Navbar */}
       <nav className="fixed top-0 left-0 w-full z-50 flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-500 bg-opacity-95 backdrop-blur-md shadow-md space-y-2 sm:space-y-0">
-  <div className="text-xl sm:text-2xl font-bold text-white">Bunker rondleidingen</div>
-  <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
-    <li>
-      <a href="/" className="hover:text-blue-300">home</a>
-    </li>
-    <li>
-      <a href="/Verhaal" className="hover:text-blue-300">verhaal</a>
-    </li>
-    <li>
-      <a href="/boeken" className="hover:text-blue-300">boeken</a>
-    </li>
-    <li>
-      <a href="/Contact" className="hover:text-blue-300 font-semibold">contact</a>
-    </li>
-  </ul>
-</nav>
+        <div className="text-xl sm:text-2xl font-bold text-white">Bunker rondleidingen</div>
+        <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
+          <li><a href="/" className="hover:text-blue-300">home</a></li>
+          <li><a href="/verhaal" className="hover:text-blue-300">verhaal</a></li>
+          <li><a href="/boeken" className="hover:text-blue-300">boeken</a></li>
+          <li><a href="/contact" className="hover:text-blue-300 font-semibold">contact</a></li>
+        </ul>
 
+        {/* Admin Dropdown */}
+        {isAdmin && (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((s) => !s)}
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+              className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+              title="Account menu"
+            >
+              <i className="fa-solid fa-circle-user text-xl" aria-hidden="true"></i>
+              <span className="sr-only">Open account menu</span>
+            </button>
 
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-50">
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/account"); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-t-lg"
+                >
+                  Account
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+                >
+                  Terug naar dashboard
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); handleLogout(); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-b-lg"
+                >
+                  Uitloggen
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </nav>
 
       {/* Admin bewerk knop boven hero */}
       {!loadingAdmin && isAdmin && !editing && (
@@ -145,10 +175,8 @@ export default function HomePage() {
       >
         <div className="absolute inset-0 bg-black bg-opacity-40"></div>
         <div className="relative z-10 text-white max-w-2xl">
-          <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">Bunker Rondleiding</h1>
-          <p className="text-lg mb-6 drop-shadow-md">
-            De site om bunkers te boeken
-          </p>
+          <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">{content.title}</h1>
+          <p className="text-lg mb-6 drop-shadow-md">{content.subtitle}</p>
           <Link
             to="/boeken"
             className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -174,71 +202,59 @@ export default function HomePage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-20">
-          {/* Box 1 */}
-          <div className="bg-grey rounded-lg shadow-md p-6 flex flex-col items-center">
-            <img
-              src="https://tse1.mm.bing.net/th/id/OIP.cOuSJr_evsOMEOEiOJQgkwHaDU?rs=1&pid=ImgDetMain&o=7&rm=3"
-              alt="Eerste sectie"
-              className="w-full h-56 object-cover mb-4 rounded"
-            />
-            <p className="text-gray-600 mb-6">
-              Beschrijving van de eerste sectie. Korte tekst over wat dit
-              inhoudt.
-            </p>
-            <Link
-              to="/verhaal"
-              className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Ontdek meer
-            </Link>
-          </div>
-
-          {/* Box 2 */}
-          <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center">
-            <img
-              src="https://terschelling-cdn.travelbase.nl/image-transforms/hero/2560x1920/3f2624ba9ffc5ebd40c98284e1379e99.webp"
-              alt="Tweede sectie"
-              className="w-full h-56 object-cover mb-4 rounded"
-            />
-            <p className="text-gray-600 mb-6">
-              Beschrijving van de tweede sectie. Wat meer info of context.
-            </p>
-            <Link
-              to="/boeken"
-              className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Tickets kopen
-            </Link>
-          </div>
-        </div>
-
-        {/* Bottom image grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {[
-            {
-              src: "https://terschelling-cdn.travelbase.nl/image-transforms/hero/2560x1920/3f2624ba9ffc5ebd40c98284e1379e99.webp",
-              caption: "Korte beschrijving 1",
-            },
-            {
-              src: "https://www.bunkermuseumterschelling.nl/wp-content/uploads/2025/05/background.jpg",
-              caption: "Bunkermuseum: buitenkant",
-            },
-            {
-              src: "https://tse1.mm.bing.net/th/id/OIP.dZTu0UUBa0fGWKPHbwKHqgHaDV?rs=1&pid=ImgDetMain&o=7&rm=3",
-              caption: "Bunkermuseum: interieur expositie",
-            },
-            {
-              src: "https://1.bp.blogspot.com/-jwvVxxaMYOY/XwpFCR_xZGI/AAAAAAAABb0/IJvRbGr9b-A2mejqfiAZi4uxudbZpC7rACNcBGAsYHQ/w1200-h630-p-k-no-nu/20180701_140510.jpg",
-              caption: "Bunkermuseum: historische artefacten",
-            },
-          ].map((item, i) => (
-            <div key={i} className="flex flex-col items-center">
-              <img
-                src={item.src}
-                alt={item.caption}
-                className="w-full h-56 object-cover mb-4 rounded"
-              />
-              <p className="text-sm text-gray-700">{item.caption}</p>
+          {content.sections.map((sec, i) => (
+            <div key={i} className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center">
+              {editing ? (
+                <>
+                  <input
+                    type="text"
+                    value={sec.img}
+                    onChange={(e) => updateSection(i, "img", e.target.value)}
+                    className="w-full border p-2 rounded mb-2"
+                    placeholder="Afbeelding URL"
+                  />
+                  <img
+                    src={sec.img}
+                    alt=""
+                    className="w-full h-56 object-cover mb-4 rounded"
+                  />
+                  <textarea
+                    value={sec.text}
+                    onChange={(e) => updateSection(i, "text", e.target.value)}
+                    className="w-full border p-2 rounded mb-2"
+                    rows="3"
+                  />
+                  <input
+                    type="text"
+                    value={sec.linkText}
+                    onChange={(e) => updateSection(i, "linkText", e.target.value)}
+                    className="w-full border p-2 rounded mb-2"
+                    placeholder="Link tekst"
+                  />
+                  <input
+                    type="text"
+                    value={sec.link}
+                    onChange={(e) => updateSection(i, "link", e.target.value)}
+                    className="w-full border p-2 rounded mb-2"
+                    placeholder="Link URL"
+                  />
+                </>
+              ) : (
+                <>
+                  <img
+                    src={sec.img}
+                    alt=""
+                    className="w-full h-56 object-cover mb-4 rounded"
+                  />
+                  <p className="text-gray-600 mb-6">{sec.text}</p>
+                  <Link
+                    to={sec.link}
+                    className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    {sec.linkText}
+                  </Link>
+                </>
+              )}
             </div>
           ))}
         </div>

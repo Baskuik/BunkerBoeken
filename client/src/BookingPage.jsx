@@ -280,11 +280,9 @@ export default function BookingPage() {
           <div className="text-2xl font-bold text-white">Bunker rondleidingen</div>
           <ul className="flex space-x-6 text-gray-200 font-medium">
             <li><Link to="/" className="text-gray-200 hover:text-blue-300">home</Link></li>
-            <li><a href="#overons" className="text-gray-200 hover:text-blue-300">over ons</a></li>
-            <li><a href="#verhaal" className="text-gray-200 hover:text-blue-300">verhaal</a></li>
-            <li><a href="#rondleiding" className="text-gray-200 hover:text-blue-300">rondleiding</a></li>
+            <li><a href="/verhaal" className="text-gray-200 hover:text-blue-300">verhaal</a></li>
             <li><Link to="/boeken" className="text-gray-200 hover:text-blue-300">boeken</Link></li>
-            <li><a href="#contact" className="text-gray-200 hover:text-blue-300">contact</a></li>
+            <li><a href="/contact" className="text-gray-200 hover:text-blue-300">contact</a></li>
           </ul>
 
           {/* Admin dropdown */}
