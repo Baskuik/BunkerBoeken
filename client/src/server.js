@@ -1,92 +1,96 @@
 const express = require("express");
+const mysql = require("mysql2");
 const cors = require("cors");
-const mysql = require("mysql2/promise");
+const bodyParser = require("body-parser");
 
 const app = express();
-const port = 5000;
+const PORT = 5000;
 
-app.use(cors({ origin: "http://localhost:3000" }));
-app.use(express.json());
+// Middleware
+app.use(cors({ origin: "http://localhost:3000" })); // your React app URL
+app.use(bodyParser.json());
 
-// --- MySQL pool ---
-const pool = mysql.createPool({
+// ✅ MySQL connection
+const db = mysql.createConnection({
   host: "localhost",
-  user: "root",
-  password: "",          // replace with your MySQL root password
-  database: "bookings",  // database name
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+  user: "root",       // your DB username
+  password: "",       // if using XAMPP default, leave empty
+  database: "bookings"
 });
 
-// Test server
-app.get("/", (req, res) => res.send("Server is running"));
+// Connect to MySQL
+db.connect((err) => {
+  if (err) {
+    console.error("❌ MySQL connection failed:", err);
+    return;
+  }
+  console.log("✅ Connected to MySQL database");
 
-// --- POST: add new booking ---
-app.post("/api/bookings", async (req, res) => {
+  // Ensure table exists
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS bookings (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      date DATE NOT NULL,
+      time VARCHAR(10) NOT NULL,
+      people INT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_date_time (date, time)
+    )
+  `;
+  db.query(createTableQuery, (err) => {
+    if (err) console.error("❌ Error creating table:", err);
+    else console.log("✅ bookings table ready");
+  });
+});
+
+// ✅ GET endpoint — fetch booked times for a date
+app.get("/api/bookings", (req, res) => {
+  const { date } = req.query;
+
+  if (!date) {
+    return res.status(400).json({ error: "Missing date parameter" });
+  }
+
+  const query = "SELECT time FROM bookings WHERE date = ?";
+  db.query(query, [date], (err, results) => {
+    if (err) {
+      console.error("❌ Error fetching booked times:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results); // e.g. [{time: "10:00"}, {time: "13:00"}]
+  });
+});
+
+// ✅ POST endpoint — save a booking
+app.post("/api/bookings", (req, res) => {
   const { name, email, date, time, people } = req.body;
 
-  if (!name || !email || !date || !time || !people)
-    return res.status(400).json({ error: "Missing fields" });
-
-  try {
-    // Check if this slot is already booked
-    const [rows] = await pool.execute(
-      "SELECT COUNT(*) as count FROM bookings WHERE date = ? AND time = ?",
-      [date, time]
-    );
-    if (rows[0].count > 0)
-      return res.status(400).json({ error: "Tijdslot al geboekt" });
-
-    const [result] = await pool.execute(
-      "INSERT INTO bookings (name, email, date, time, people) VALUES (?, ?, ?, ?, ?)",
-      [name, email, date, time, people]
-    );
-
-    res.json({
-      id: result.insertId,
-      name,
-      email,
-      date,
-      time,
-      people,
-      created_at: new Date().toISOString()
-    });
-
-  } catch (err) {
-    console.error("Error inserting booking:", err);
-    res.status(500).json({ error: "Server error" });
+  if (!name || !email || !date || !time || !people) {
+    return res.status(400).json({ error: "Missing required fields" });
   }
+
+  const query = `
+    INSERT INTO bookings (name, email, date, time, people)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+
+  db.query(query, [name, email, date, time, people], (err, result) => {
+    if (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        return res.status(409).json({ error: "Time slot already booked" });
+      }
+      console.error("❌ Error saving booking:", err);
+      return res.status(500).json({ error: "Database insert failed" });
+    }
+
+    console.log("✅ Booking added:", result.insertId);
+    res.json({ id: result.insertId, success: true });
+  });
 });
 
-// --- GET: fetch a booking by ID ---
-app.get("/api/bookings/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    const [rows] = await pool.execute("SELECT * FROM bookings WHERE id = ?", [id]);
-    if (rows.length === 0) return res.status(404).json({ error: "Booking not found" });
-    res.json(rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// --- GET: fetch booked times for a specific date ---
-app.get("/api/bookings", async (req, res) => {
-  const { date } = req.query;
-  if (!date) return res.status(400).json({ error: "Missing date" });
-
-  try {
-    const [rows] = await pool.execute("SELECT time FROM bookings WHERE date = ?", [date]);
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// --- Start server ---
-app.listen(port, () => {
-  console.log(`Server running on http://127.0.0.1:${port}`);
+// Start server
+app.listen(PORT, "127.0.0.1", () => {
+  console.log(`🚀 Server listening on http://127.0.0.1:${PORT}`);
 });

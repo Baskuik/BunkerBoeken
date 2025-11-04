@@ -13,6 +13,10 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
+  const [bookedTimesByDate, setBookedTimesByDate] = useState({});
+  const [bookedTimesStatus, setBookedTimesStatus] = useState({}); // per-date loading/error
+  const [fullyBookedDates, setFullyBookedDates] = useState([]);
+
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
 
   // Admin state
@@ -360,6 +364,7 @@ export default function BookingPage() {
             </div>
 
             {/* E-mail */}
+            {/* E-mail */}
             <div>
               <label className="block text-sm font-medium mb-1"
                      contentEditable={isEditing} suppressContentEditableWarning
@@ -385,12 +390,13 @@ export default function BookingPage() {
                 <button type="button" onClick={() => setCalendarMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))} className="px-2 py-1 rounded hover:bg-gray-100">▶</button>
               </div>
               <div className="grid grid-cols-7 gap-1 text-xs text-center mb-2">
-                {weekdayLabels.map(d => <div key={d} className="font-semibold text-gray-100">{d}</div>)}
+                {weekdayLabels.map((d) => <div key={d} className="font-semibold text-gray-100">{d}</div>)}
               </div>
               <div className="grid grid-cols-7 gap-1 text-sm">
                 {days.map((day, idx) => {
                   const isSelected = day && formatISO(day) === selectedDate;
-                  const isPast = day && formatISO(day) < todayISO;
+                  const isPast = day && isDayPast(day);
+                  const isFull = day && isDateFullyBooked(day);
                   return (
                     <button
                       key={idx}
@@ -401,6 +407,7 @@ export default function BookingPage() {
                     >
                       {day ? day.getDate() : ""}
                     </button>
+                  );
                   );
                 })}
               </div>
@@ -483,6 +490,7 @@ export default function BookingPage() {
               </div>
             </div>
 
+            {/* Verzenden */}
             <div className="flex justify-center mt-6">
               <button
                 type="submit"

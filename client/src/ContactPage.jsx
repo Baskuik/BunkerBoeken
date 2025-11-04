@@ -99,16 +99,24 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="font-sans text-gray-800 relative">
-      {/* Navbar */}
-      <nav className="flex justify-between items-center px-10 py-5 bg-white shadow-sm border-b z-30 relative">
-        <div className="text-2xl font-bold">Bunker Museum</div>
-        <ul className="flex space-x-8 text-gray-700 font-medium">
-          <li><a href="/">home</a></li>
-          <li><a href="/verhaal">verhaal</a></li>
-          <li><a href="/boeken">boeken</a></li>
-          <li><a href="/contact">contact</a></li>
-        </ul>
+    <div className="font-sans text-gray-800">
+      
+<nav className="fixed top-0 left-0 w-full z-50 flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-500 bg-opacity-95 backdrop-blur-md shadow-md space-y-2 sm:space-y-0">
+  <div className="text-xl sm:text-2xl font-bold text-white">Bunker rondleidingen</div>
+  <ul className="flex flex-wrap justify-center gap-3 sm:space-x-6 text-gray-200 font-medium text-sm sm:text-base">
+    <li>
+      <a href="/" className="hover:text-blue-300">home</a>
+    </li>
+    <li>
+      <a href="/Verhaal" className="hover:text-blue-300">verhaal</a>
+    </li>
+    <li>
+      <a href="/boeken" className="hover:text-blue-300">boeken</a>
+    </li>
+    <li>
+      <a href="/Contact" className="hover:text-blue-300 font-semibold">contact</a>
+    </li>
+  </ul>
 
         {/* Admin dropdown */}
         {isAdmin && (
